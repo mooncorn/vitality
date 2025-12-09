@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Montserrat', sans-serif;
+  --font-mono: 'Montserrat', 'Fira Code', 'Consolas', monospace;
+}
+
+@layer base {
+  html, body, #root {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    background-color: black;
+    font-family: var(--font-mono);
+  }
+
+  body {
+    overscroll-behavior: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .touch-none {
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+}
+
+@layer components {
+  .counter-value {
+    font-family: var(--font-mono);
+    font-weight: 100;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .glass-panel {
+    background-color: rgb(255 255 255 / 0.1);
+    backdrop-filter: blur(16px);
+    border-radius: 1rem;
+    border: 1px solid rgb(255 255 255 / 0.2);
+  }
+}
