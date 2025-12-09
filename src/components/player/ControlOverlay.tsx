@@ -84,15 +84,13 @@ export const ControlOverlay = ({
         } else if (isAtBoundary && Math.abs(cardMovement) > 10) {
           onBoundaryHit?.();
         }
-        // Smooth spring back
-        animate(dragOffset, 0, { type: 'spring', stiffness: 300, damping: 30 });
+        // Animate back to center
+        animate(dragOffset, 0, { type: 'spring', stiffness: 500, damping: 35 });
       } else {
-        // Subtle drag feedback with resistance at boundaries
-        const maxDrag = isAtBoundary ? 30 : 60;
-        const resistance = isAtBoundary ? 0.3 : 0.5;
-        const dampened = cardMovement * resistance;
-        const clamped = Math.max(-maxDrag, Math.min(maxDrag, dampened));
-        dragOffset.set(clamped);
+        // Subtle hint - max 15px movement
+        const maxOffset = isAtBoundary ? 8 : 15;
+        const offset = Math.max(-maxOffset, Math.min(maxOffset, cardMovement * 0.15));
+        dragOffset.set(offset);
       }
     },
     { target: centerRef, filterTaps: true }

@@ -1,4 +1,4 @@
-import { Heart, Skull, Zap, Shield, Star } from 'lucide-react';
+import { Heart, ShieldHalf, Zap, Swords, Sparkle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { CounterType } from '@/types';
 
@@ -11,10 +11,10 @@ interface CounterViewProps {
 
 const iconMap = {
   life: Heart,
-  poison: Skull,
+  poison: ShieldHalf,
   energy: Zap,
-  commander: Shield,
-  experience: Star,
+  commander: Swords,
+  experience: Sparkle,
 };
 
 export const CounterView = ({ type, value, color = '#ffffff', delta = 0 }: CounterViewProps) => {

@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Settings } from 'lucide-react';
+import { Settings, ShieldHalf, Zap, Sparkle } from 'lucide-react';
 import { useMotionValue } from 'framer-motion';
 import type { Player } from '@/types';
 import { useGameStore } from '@/store/gameStore';
@@ -17,6 +17,35 @@ interface PlayerCardProps {
 }
 
 const DELTA_RESET_DELAY = 1500;
+
+const secondaryCounterIcons = {
+  poison: ShieldHalf,
+  energy: Zap,
+  experience: Sparkle,
+} as const;
+
+const SecondaryCounters = ({ player }: { player: Player }) => {
+  const counters = player.counters.filter(
+    (c) => c.type !== 'life' && c.type !== 'commander' && c.value !== 0
+  );
+
+  if (counters.length === 0) return null;
+
+  return (
+    <div className="flex flex-col gap-1 mt-1 opacity-60">
+      {counters.map((counter) => {
+        const Icon = secondaryCounterIcons[counter.type as keyof typeof secondaryCounterIcons];
+        if (!Icon) return null;
+        return (
+          <div key={counter.id} className="flex items-center gap-0.5 text-xs">
+            <Icon size={10} />
+            <span>{counter.value}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
 
 export const PlayerCard = ({ player, rotation = 0 }: PlayerCardProps) => {
   const [showOverlay, setShowOverlay] = useState(false);
@@ -159,16 +188,17 @@ export const PlayerCard = ({ player, rotation = 0 }: PlayerCardProps) => {
           isSideways={isSideways}
         />
 
-        {/* Player name */}
+        {/* Player name and secondary counters */}
         <div
-          className="absolute text-sm font-medium opacity-70 z-20"
+          className="absolute pointer-events-none"
           style={{
             top: isSideways ? '8px' : '12px',
             left: isSideways ? '8px' : '12px',
             color: player.theme.primaryColor,
           }}
         >
-          {player.name}
+          <div className="text-sm font-medium opacity-70">{player.name}</div>
+          <SecondaryCounters player={player} />
         </div>
       </div>
 
