@@ -24,8 +24,8 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
           position: 'fixed',
           top: '50%',
           left: '50%',
-          width: '100vh',
-          height: '100vw',
+          width: '100dvh',
+          height: '100dvw',
           transform: 'translate(-50%, -50%) rotate(90deg)',
           transformOrigin: 'center center',
         }}
@@ -36,7 +36,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
   }
 
   return (
-    <div className="h-screen w-screen bg-black overflow-hidden touch-none select-none">
+    <div className="w-screen bg-black overflow-hidden touch-none select-none" style={{ height: '100dvh' }}>
       {children}
     </div>
   );
