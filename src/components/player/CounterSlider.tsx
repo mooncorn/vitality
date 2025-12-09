@@ -1,55 +1,27 @@
-import { useRef } from 'react';
-import { useDrag } from '@use-gesture/react';
-import { motion, AnimatePresence, useMotionValue, animate } from 'framer-motion';
+import { motion, AnimatePresence, type MotionValue } from 'framer-motion';
 import type { CounterState } from '@/types';
 import { CounterView } from './CounterView';
 
 interface CounterSliderProps {
   counters: CounterState[];
   activeIndex: number;
-  onIndexChange: (index: number) => void;
   color?: string;
   delta?: number;
+  dragOffset: MotionValue<number>;
 }
-
-const THRESHOLD = 50;
 
 export const CounterSlider = ({
   counters,
   activeIndex,
-  onIndexChange,
   color = '#ffffff',
   delta = 0,
+  dragOffset,
 }: CounterSliderProps) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const x = useMotionValue(0);
-
-  useDrag(
-    ({ movement: [mx], last }) => {
-      if (last) {
-        if (mx < -THRESHOLD && activeIndex < counters.length - 1) {
-          onIndexChange(activeIndex + 1);
-        } else if (mx > THRESHOLD && activeIndex > 0) {
-          onIndexChange(activeIndex - 1);
-        }
-        animate(x, 0, { type: 'spring', stiffness: 300, damping: 30 });
-      } else {
-        // Limit drag distance
-        const clampedX = Math.max(-100, Math.min(100, mx));
-        x.set(clampedX);
-      }
-    },
-    { target: containerRef, axis: 'x', filterTaps: true }
-  );
-
   const currentCounter = counters[activeIndex];
 
   return (
-    <div
-      ref={containerRef}
-      className="h-full w-full touch-none"
-    >
-      <motion.div style={{ x }} className="h-full w-full">
+    <div className="h-full w-full">
+      <motion.div style={{ x: dragOffset }} className="h-full w-full">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeIndex}

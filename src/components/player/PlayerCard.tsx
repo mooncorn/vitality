@@ -1,7 +1,10 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { Settings } from 'lucide-react';
+import { useMotionValue } from 'framer-motion';
 import type { Player } from '@/types';
 import { useGameStore } from '@/store/gameStore';
+import { useHaptics } from '@/hooks/useHaptics';
+import { useForceLandscape } from '@/hooks/useForceLandscape';
 import { getTextureForColor } from '@/utils/colors';
 import { CounterSlider } from './CounterSlider';
 import { ControlOverlay } from './ControlOverlay';
@@ -24,6 +27,9 @@ export const PlayerCard = ({ player, rotation = 0 }: PlayerCardProps) => {
 
   const updateCounter = useGameStore(state => state.updateCounter);
   const setActiveCounter = useGameStore(state => state.setActiveCounter);
+  const { lightTap } = useHaptics();
+  const isPortrait = useForceLandscape();
+  const dragOffset = useMotionValue(0);
 
   const currentCounter = player.counters[player.activeCounterIndex];
 
@@ -70,25 +76,6 @@ export const PlayerCard = ({ player, rotation = 0 }: PlayerCardProps) => {
     };
   }, []);
 
-  const handleIndexChange = useCallback(
-    (index: number) => {
-      setActiveCounter(player.id, index);
-    },
-    [player.id, setActiveCounter]
-  );
-
-  const handleSwipe = useCallback(
-    (direction: 'left' | 'right') => {
-      const countersCount = player.counters.length;
-      if (direction === 'left' && player.activeCounterIndex < countersCount - 1) {
-        setActiveCounter(player.id, player.activeCounterIndex + 1);
-      } else if (direction === 'right' && player.activeCounterIndex > 0) {
-        setActiveCounter(player.id, player.activeCounterIndex - 1);
-      }
-    },
-    [player.id, player.activeCounterIndex, player.counters.length, setActiveCounter]
-  );
-
   // For 90° or 270° rotation, we need to swap width and height
   const isSideways = rotation === 90 || rotation === 270;
 
@@ -131,17 +118,27 @@ export const PlayerCard = ({ player, rotation = 0 }: PlayerCardProps) => {
         style={{ backgroundColor: player.theme.backgroundColor, opacity: 0.8 }}
       />
       <div style={innerStyle}>
-        {/* Counter display with slide gesture */}
+        {/* Counter display */}
         <CounterSlider
           counters={player.counters}
           activeIndex={player.activeCounterIndex}
-          onIndexChange={handleIndexChange}
           color={player.theme.primaryColor}
           delta={accumulatedDelta}
+          dragOffset={dragOffset}
         />
 
         {/* Touch zones for +/- and swipe */}
-        <ControlOverlay onIncrement={handleIncrement} onSwipe={handleSwipe} />
+        <ControlOverlay
+          onIncrement={handleIncrement}
+          rotation={rotation}
+          isPortrait={isPortrait}
+          canGoNext={player.activeCounterIndex < player.counters.length - 1}
+          canGoPrev={player.activeCounterIndex > 0}
+          onSwipeNext={() => setActiveCounter(player.id, player.activeCounterIndex + 1)}
+          onSwipePrev={() => setActiveCounter(player.id, player.activeCounterIndex - 1)}
+          onBoundaryHit={lightTap}
+          dragOffset={dragOffset}
+        />
 
         {/* Settings button */}
         <button
