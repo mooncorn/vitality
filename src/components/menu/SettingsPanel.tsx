@@ -74,24 +74,6 @@ export const SettingsPanel = ({ onClose }: SettingsPanelProps) => {
               Changes apply on next game reset
             </p>
           </div>
-
-          {/* Screen wake lock */}
-          <div>
-            <label className="text-white/70 text-sm mb-2 flex items-center gap-2">
-              <Moon size={16} />
-              Screen Sleep
-            </label>
-            <button
-              className={`w-full py-3 rounded-lg font-medium transition-colors ${
-                settings.allowSleep
-                  ? 'bg-white/10 text-white/70'
-                  : 'bg-white/30 text-white'
-              }`}
-              onClick={handleAllowSleepChange}
-            >
-              {settings.allowSleep ? 'Allow Screen Sleep' : 'Keep Screen Awake'}
-            </button>
-          </div>
         </motion.div>
       </motion.div>
     </AnimatePresence>,

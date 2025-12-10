@@ -1,20 +1,48 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, RotateCcw, Users, Settings } from 'lucide-react';
+import { Menu, X, RotateCcw, Users, Settings, Wifi, LogOut, Home, Copy, Check } from 'lucide-react';
 import { useGameStore } from '@/store/gameStore';
+import { useMultiplayerStore, selectIsInLobby } from '@/store/multiplayerStore';
 import { SettingsPanel } from './SettingsPanel';
+
+interface GlassButtonProps {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  variant?: 'default' | 'danger';
+}
+
+const GlassButton = ({ icon, label, onClick, variant = 'default' }: GlassButtonProps) => {
+  const baseClasses = "w-full py-4 rounded-xl backdrop-blur-md border transition-all duration-200 flex flex-col items-center justify-center gap-2";
+  const variantClasses = variant === 'danger'
+    ? "bg-red-500/10 border-red-500/20 hover:bg-red-500/20 text-red-400"
+    : "bg-white/10 border-white/20 hover:bg-white/20 text-white";
+
+  return (
+    <button className={`${baseClasses} ${variantClasses}`} onClick={onClick}>
+      {icon}
+      <span className="text-sm font-medium">{label}</span>
+    </button>
+  );
+};
 
 export const GlobalMenu = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  const resetGame = useGameStore(state => state.resetGame);
+  const resetCounters = useGameStore(state => state.resetCounters);
   const setPlayerCount = useGameStore(state => state.setPlayerCount);
+  const setGameMode = useGameStore(state => state.setGameMode);
   const playerCount = useGameStore(state => state.settings.playerCount);
+  const gameMode = useGameStore(state => state.gameMode);
+
+  const isInLobby = useMultiplayerStore(selectIsInLobby);
+  const { lobbyCode, isHost, leaveLobby, suspendLobby } = useMultiplayerStore();
 
   const handleReset = () => {
-    resetGame();
+    resetCounters();
     setIsOpen(false);
   };
 
@@ -22,6 +50,31 @@ export const GlobalMenu = () => {
     setPlayerCount(count);
     setIsOpen(false);
   };
+
+  const handleBackToMenu = () => {
+    if (isInLobby && isHost) {
+      // Host suspends lobby (keeps it alive for resuming)
+      suspendLobby();
+    } else if (isInLobby) {
+      // Guest leaves lobby completely
+      leaveLobby();
+    }
+    setGameMode('menu');
+    setIsOpen(false);
+  };
+
+  const handleLeaveLobby = () => {
+    leaveLobby();
+    setGameMode('menu');
+    setIsOpen(false);
+  };
+
+  const handleCopyLobbyCode = useCallback(async () => {
+    if (!lobbyCode) return;
+    await navigator.clipboard.writeText(lobbyCode);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [lobbyCode]);
 
   return (
     <>
@@ -38,44 +91,43 @@ export const GlobalMenu = () => {
         createPortal(
           <AnimatePresence>
             <motion.div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+              className="fixed inset-0 z-50 flex items-center justify-center"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setIsOpen(false)}
             >
+              {/* Gradient background */}
+              <div className="absolute inset-0 bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900" />
+
+              {/* Close button - fixed to top right of screen */}
+              <button
+                className="fixed top-4 right-4 z-20 p-3 rounded-full bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/20 transition-colors"
+                onClick={() => setIsOpen(false)}
+              >
+                <X size={24} color="white" />
+              </button>
+
               <motion.div
-                className="glass-panel p-6 mx-4 max-w-sm w-full"
+                className="relative z-10 p-6 mx-4 max-w-sm w-full max-h-[85vh] overflow-y-auto"
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.9, opacity: 0 }}
-                onClick={e => e.stopPropagation()}
               >
-                {/* Header */}
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-white text-lg font-semibold">Game Menu</h2>
-                  <button
-                    className="p-1 rounded-full hover:bg-white/10 transition-colors"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    <X size={20} color="white" />
-                  </button>
-                </div>
 
                 {/* Player count */}
                 <div className="mb-6">
-                  <label className="text-white/70 text-sm mb-2 flex items-center gap-2">
-                    <Users size={16} />
-                    Players
-                  </label>
+                  <div className="flex items-center justify-center gap-2 mb-3">
+                    <Users size={18} className="text-white/70" />
+                    <span className="text-white/70 text-sm font-medium">Players</span>
+                  </div>
                   <div className="flex gap-2">
                     {[2, 3, 4, 5, 6].map(count => (
                       <button
                         key={count}
-                        className={`flex-1 py-2 rounded-lg font-medium transition-colors ${
+                        className={`flex-1 py-3 rounded-xl backdrop-blur-md border font-medium transition-all duration-200 ${
                           playerCount === count
-                            ? 'bg-white/30 text-white'
-                            : 'bg-white/10 text-white/70 hover:bg-white/20'
+                            ? 'bg-white/20 border-white/30 text-white'
+                            : 'bg-white/10 border-white/20 text-white/70 hover:bg-white/20 hover:text-white'
                         }`}
                         onClick={() => handlePlayerCountChange(count)}
                       >
@@ -85,26 +137,61 @@ export const GlobalMenu = () => {
                   </div>
                 </div>
 
-                {/* Actions */}
-                <div className="space-y-2">
-                  <button
-                    className="w-full py-3 rounded-xl bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center gap-2"
+                {/* Lobby Status (multiplayer only) */}
+                {gameMode === 'multiplayer' && isInLobby && (
+                  <div className="mb-6">
+                    <div className="flex items-center justify-center gap-2 mb-3">
+                      <Wifi size={18} className="text-white/70" />
+                      <span className="text-white/70 text-sm font-medium">Lobby</span>
+                    </div>
+                    <div className="space-y-2">
+                      <button
+                        onClick={handleCopyLobbyCode}
+                        className="w-full flex items-center justify-center gap-2 py-3 bg-green-500/10 backdrop-blur-md rounded-xl border border-green-500/30 hover:bg-green-500/20 transition-colors"
+                      >
+                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                        <span className="font-mono font-bold text-green-400 tracking-wider">
+                          {lobbyCode}
+                        </span>
+                        {copied ? (
+                          <Check size={16} className="text-green-400" />
+                        ) : (
+                          <Copy size={16} className="text-green-400/60" />
+                        )}
+                      </button>
+                      <GlassButton
+                        icon={<LogOut size={20} />}
+                        label={isHost ? 'Close Lobby' : 'Leave Lobby'}
+                        onClick={handleLeaveLobby}
+                        variant="danger"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Actions Grid */}
+                <div className="grid grid-cols-2 gap-3">
+                  <GlassButton
+                    icon={<Settings size={22} />}
+                    label="Settings"
                     onClick={() => {
                       setIsOpen(false);
                       setShowSettings(true);
                     }}
-                  >
-                    <Settings size={20} color="white" />
-                    <span className="text-white">Settings</span>
-                  </button>
-
-                  <button
-                    className="w-full py-3 rounded-xl bg-red-500/20 hover:bg-red-500/30 transition-colors flex items-center justify-center gap-2"
+                  />
+                  <GlassButton
+                    icon={<RotateCcw size={22} />}
+                    label="Reset"
                     onClick={handleReset}
-                  >
-                    <RotateCcw size={20} color="#ef4444" />
-                    <span className="text-red-400">Reset Game</span>
-                  </button>
+                    variant="danger"
+                  />
+                  <div className="col-span-2">
+                    <GlassButton
+                      icon={<Home size={22} />}
+                      label="Back to Menu"
+                      onClick={handleBackToMenu}
+                    />
+                  </div>
                 </div>
               </motion.div>
             </motion.div>

@@ -17,7 +17,6 @@ export const CommanderDamageModal = ({
 }: CommanderDamageModalProps) => {
   const players = useGameStore(state => state.players);
   const updateCommanderDamage = useGameStore(state => state.updateCommanderDamage);
-  const updateCounter = useGameStore(state => state.updateCounter);
 
   const sourcePlayer = players.find(p => p.id === sourcePlayerId);
   const targetPlayer = players.find(p => p.id === targetPlayerId);
@@ -26,13 +25,10 @@ export const CommanderDamageModal = ({
 
   const handleConfirm = useCallback(() => {
     if (amount > 0) {
-      // Add commander damage to target
       updateCommanderDamage(targetPlayerId, sourcePlayerId, amount);
-      // Also reduce target's life
-      updateCounter(targetPlayerId, 'life', -amount);
     }
     onClose();
-  }, [amount, sourcePlayerId, targetPlayerId, updateCommanderDamage, updateCounter, onClose]);
+  }, [amount, sourcePlayerId, targetPlayerId, updateCommanderDamage, onClose]);
 
   const handleIncrement = useCallback(() => {
     setAmount(prev => prev + 1);

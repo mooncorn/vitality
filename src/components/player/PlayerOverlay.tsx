@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Shield } from 'lucide-react';
+import { X, Shield, User, Palette } from 'lucide-react';
 import type { Player } from '@/types';
 import { useGameStore } from '@/store/gameStore';
 import { ColorPicker } from '@/components/ui/ColorPicker';
@@ -50,46 +50,55 @@ export const PlayerOverlay = ({ player, onClose }: PlayerOverlayProps) => {
   return createPortal(
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+        className="fixed inset-0 z-50 flex items-center justify-center"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        onClick={onClose}
       >
+        {/* Full-screen gradient background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900" />
+
+        {/* Close button - fixed to top right of screen */}
+        <button
+          className="fixed top-4 right-4 z-20 p-3 rounded-full bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/20 transition-colors"
+          onClick={onClose}
+        >
+          <X size={24} color="white" />
+        </button>
+
         <motion.div
-          className="glass-panel p-6 mx-4 max-w-sm w-full max-h-[80vh] overflow-y-auto"
+          className="relative z-10 p-6 mx-4 max-w-sm w-full max-h-[85vh] overflow-y-auto"
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
-          onClick={e => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-white text-lg font-semibold">Player Settings</h2>
-            <button
-              className="p-1 rounded-full hover:bg-white/10 transition-colors"
-              onClick={onClose}
-            >
-              <X size={20} color="white" />
-            </button>
+          <div className="text-center mb-8">
+            <h2 className="text-2xl font-bold text-white">Player Settings</h2>
           </div>
 
           {/* Name input */}
           <div className="mb-6">
-            <label className="text-white/70 text-sm mb-2 block">Name</label>
+            <div className="flex items-center justify-center gap-2 mb-3">
+              <User size={18} className="text-white/70" />
+              <span className="text-white/70 text-sm font-medium">Name</span>
+            </div>
             <input
               type="text"
               value={name}
               onChange={handleNameChange}
               onBlur={handleNameBlur}
-              className="w-full px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/30 focus:outline-none focus:border-white/40"
+              className="w-full px-4 py-3 bg-white/5 backdrop-blur-md border border-white/20 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-blue-500"
               placeholder="Player name"
             />
           </div>
 
           {/* Color picker */}
           <div className="mb-6">
-            <label className="text-white/70 text-sm mb-2 block">Background Color</label>
+            <div className="flex items-center justify-center gap-2 mb-3">
+              <Palette size={18} className="text-white/70" />
+              <span className="text-white/70 text-sm font-medium">Background Color</span>
+            </div>
             <ColorPicker
               value={player.theme.backgroundColor}
               onChange={handleColorChange}
@@ -99,27 +108,29 @@ export const PlayerOverlay = ({ player, onClose }: PlayerOverlayProps) => {
           {/* Commander damage summary */}
           {opponents.length > 0 && (
             <div>
-              <label className="text-white/70 text-sm mb-2 flex items-center gap-2">
-                <Shield size={16} />
-                Commander Damage Received ({totalCommanderDamage})
-              </label>
+              <div className="flex items-center justify-center gap-2 mb-3">
+                <Shield size={18} className="text-white/70" />
+                <span className="text-white/70 text-sm font-medium">
+                  Commander Damage ({totalCommanderDamage})
+                </span>
+              </div>
               <div className="space-y-2">
                 {opponents.map(opponent => {
                   const damage = player.commanderDamage[opponent.id] || 0;
                   return (
                     <div
                       key={opponent.id}
-                      className="flex items-center justify-between px-3 py-2 rounded-lg bg-white/5"
+                      className="flex items-center justify-between px-4 py-3 rounded-xl bg-white/5 backdrop-blur-md border border-white/10"
                     >
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-3">
                         <div
-                          className="w-6 h-6 rounded-full"
+                          className="w-8 h-8 rounded-lg"
                           style={{ backgroundColor: opponent.theme.backgroundColor }}
                         />
-                        <span className="text-white/80 text-sm">{opponent.name}</span>
+                        <span className="text-white/80 text-sm font-medium">{opponent.name}</span>
                       </div>
                       <span
-                        className={`font-mono font-bold ${
+                        className={`font-mono font-bold text-lg ${
                           damage >= 21 ? 'text-red-400' : 'text-white'
                         }`}
                       >

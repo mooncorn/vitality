@@ -1,11 +1,10 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Settings, ShieldHalf, Zap, Sparkle } from 'lucide-react';
+import { Settings, Shield, Zap, Sparkle } from 'lucide-react';
 import { useMotionValue } from 'framer-motion';
 import type { Player } from '@/types';
 import { useGameStore } from '@/store/gameStore';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useForceLandscape } from '@/hooks/useForceLandscape';
-import { getTextureForColor } from '@/utils/colors';
 import { CounterSlider } from './CounterSlider';
 import { ControlOverlay } from './ControlOverlay';
 import { DraggableCommanderIcon } from './DraggableCommanderIcon';
@@ -19,7 +18,7 @@ interface PlayerCardProps {
 const DELTA_RESET_DELAY = 1500;
 
 const secondaryCounterIcons = {
-  poison: ShieldHalf,
+  poison: Shield,
   energy: Zap,
   experience: Sparkle,
 } as const;
@@ -130,21 +129,10 @@ export const PlayerCard = ({ player, rotation = 0 }: PlayerCardProps) => {
       className="relative h-full w-full overflow-hidden"
       data-player-id={player.id}
     >
-      {/* Blurred texture background */}
+      {/* Background */}
       <div
         className="absolute inset-0"
-        style={{
-          backgroundImage: `url(${getTextureForColor(player.theme.backgroundColor)})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          filter: 'blur(4px)',
-          transform: `rotate(${rotation}deg)`,
-        }}
-      />
-      {/* Color overlay */}
-      <div
-        className="absolute inset-0"
-        style={{ backgroundColor: player.theme.backgroundColor, opacity: 0.8 }}
+        style={{ backgroundColor: player.theme.backgroundColor }}
       />
       <div style={innerStyle}>
         {/* Counter display */}
