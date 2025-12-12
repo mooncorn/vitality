@@ -27,9 +27,9 @@ export const EnabledCountersDisplay = ({
 
   return (
     <div
-      className="absolute left-1/2 -translate-x-1/2 flex gap-2 z-20 max-w-[90%] overflow-x-auto scrollbar-hide px-2 py-2"
+      className="absolute left-1/2 -translate-x-1/2 flex gap-1.5 z-20 max-w-[90%] overflow-x-auto scrollbar-hide px-1 py-1"
       style={{
-        bottom: isSideways ? '4px' : '12px',
+        bottom: isSideways ? '2px' : '4px',
       }}
     >
       {enabledCounters.map(counterType => {
@@ -43,15 +43,15 @@ export const EnabledCountersDisplay = ({
           <button
             key={counterType}
             onClick={() => onSelectCounter(isSelected ? null : counterType)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all shrink-0 ${
+            className={`flex items-center gap-1 px-2 py-1 rounded-md transition-all shrink-0 ${
               isSelected
                 ? 'bg-white/30 border-2 border-white/60 scale-110'
                 : 'bg-black/30 backdrop-blur-sm border border-transparent hover:bg-black/40'
             }`}
             style={{ color: player.theme.primaryColor }}
           >
-            <CustomIcon config={config} size={14} color={player.theme.primaryColor} />
-            <span className="text-sm font-bold tabular-nums">{counter.value}</span>
+            <CustomIcon config={config} size={12} color={player.theme.primaryColor} />
+            <span className="text-xs font-bold tabular-nums">{counter.value}</span>
           </button>
         );
       })}

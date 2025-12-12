@@ -96,7 +96,7 @@ export const DraggableCommanderIcon = ({
         ref={iconRef}
         className="absolute p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors z-30 cursor-grab active:cursor-grabbing touch-none"
         style={{
-          bottom: isSideways ? '8px' : '12px',
+          top: isSideways ? '44px' : '52px',
           right: isSideways ? '8px' : '12px',
         }}
         onPointerDown={handlePointerDown}
