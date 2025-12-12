@@ -69,6 +69,7 @@ const createPlayers = (count: number, startingLife: number): Player[] => {
       counters: getDefaultCounters(startingLife),
       commanderDamage,
       activeCounterIndex: 0,
+      enabledSecondaryCounters: [],
     };
   });
 };
@@ -164,6 +165,7 @@ export const useGameStore = create<ExtendedGameStore>()(
                   Object.keys(player.commanderDamage).map(key => [key, 0])
                 ),
                 activeCounterIndex: 0,
+                enabledSecondaryCounters: [],
               })),
             }));
             break;
@@ -177,6 +179,18 @@ export const useGameStore = create<ExtendedGameStore>()(
                 settings: { ...settings, playerCount: clampedCount },
               });
             }
+            break;
+
+          case 'TOGGLE_SECONDARY_COUNTER':
+            set(state => ({
+              players: state.players.map(player => {
+                if (player.id !== action.playerId) return player;
+                const enabledSecondaryCounters = action.enabled
+                  ? [...player.enabledSecondaryCounters, action.counterType]
+                  : player.enabledSecondaryCounters.filter(t => t !== action.counterType);
+                return { ...player, enabledSecondaryCounters };
+              }),
+            }));
             break;
         }
 
@@ -299,6 +313,22 @@ export const useGameStore = create<ExtendedGameStore>()(
         }));
       },
 
+      toggleSecondaryCounter: (playerId: string, counterType: CounterType, enabled: boolean) => {
+        set(state => ({
+          players: state.players.map(player => {
+            if (player.id !== playerId) return player;
+            const enabledSecondaryCounters = enabled
+              ? [...player.enabledSecondaryCounters, counterType]
+              : player.enabledSecondaryCounters.filter(t => t !== counterType);
+            return { ...player, enabledSecondaryCounters };
+          }),
+        }));
+
+        if (isMultiplayer()) {
+          sendAction({ type: 'TOGGLE_SECONDARY_COUNTER', playerId, counterType, enabled });
+        }
+      },
+
       updateSettings: (newSettings: Partial<GameSettings>) => {
         set(state => ({
           settings: { ...state.settings, ...newSettings },
@@ -322,6 +352,7 @@ export const useGameStore = create<ExtendedGameStore>()(
               Object.keys(player.commanderDamage).map(key => [key, 0])
             ),
             activeCounterIndex: 0,
+            enabledSecondaryCounters: [],
           })),
         }));
 

@@ -30,6 +30,7 @@ export interface Player {
   counters: CounterState[];
   commanderDamage: CommanderDamageState;
   activeCounterIndex: number;
+  enabledSecondaryCounters: CounterType[];
 }
 
 // Game Settings
@@ -65,6 +66,7 @@ export interface GameActions {
   setPlayerName: (playerId: string, name: string) => void;
   setPlayerTheme: (playerId: string, theme: Partial<PlayerTheme>) => void;
   setActiveCounter: (playerId: string, index: number) => void;
+  toggleSecondaryCounter: (playerId: string, counterType: CounterType, enabled: boolean) => void;
 
   // Game management
   updateSettings: (settings: Partial<GameSettings>) => void;

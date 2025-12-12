@@ -1,7 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Settings, Shield, Zap, Sparkle } from 'lucide-react';
-import { useMotionValue } from 'framer-motion';
-import type { Player } from '@/types';
+import { Settings } from 'lucide-react';
+import type { Player, CounterType } from '@/types';
 import { useGameStore } from '@/store/gameStore';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useForceLandscape } from '@/hooks/useForceLandscape';
@@ -9,6 +8,8 @@ import { CounterSlider } from './CounterSlider';
 import { ControlOverlay } from './ControlOverlay';
 import { DraggableCommanderIcon } from './DraggableCommanderIcon';
 import { PlayerOverlay } from './PlayerOverlay';
+import { CounterToggleOverlay } from './CounterToggleOverlay';
+import { EnabledCountersDisplay } from './EnabledCountersDisplay';
 
 interface PlayerCardProps {
   player: Player;
@@ -17,49 +18,22 @@ interface PlayerCardProps {
 
 const DELTA_RESET_DELAY = 1500;
 
-const secondaryCounterIcons = {
-  poison: Shield,
-  energy: Zap,
-  experience: Sparkle,
-} as const;
-
-const SecondaryCounters = ({ player }: { player: Player }) => {
-  const counters = player.counters.filter(
-    (c) => c.type !== 'life' && c.type !== 'commander' && c.value !== 0
-  );
-
-  if (counters.length === 0) return null;
-
-  return (
-    <div className="flex flex-col gap-1 mt-1 opacity-60">
-      {counters.map((counter) => {
-        const Icon = secondaryCounterIcons[counter.type as keyof typeof secondaryCounterIcons];
-        if (!Icon) return null;
-        return (
-          <div key={counter.id} className="flex items-center gap-0.5 text-xs">
-            <Icon size={10} />
-            <span>{counter.value}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
-};
-
 export const PlayerCard = ({ player, rotation = 0 }: PlayerCardProps) => {
   const [showOverlay, setShowOverlay] = useState(false);
+  const [showCounterToggle, setShowCounterToggle] = useState(false);
+  const [selectedCounter, setSelectedCounter] = useState<CounterType | null>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [accumulatedDelta, setAccumulatedDelta] = useState(0);
   const deltaTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
 
   const updateCounter = useGameStore(state => state.updateCounter);
-  const setActiveCounter = useGameStore(state => state.setActiveCounter);
   const { lightTap } = useHaptics();
   const isPortrait = useForceLandscape();
-  const dragOffset = useMotionValue(0);
 
-  const currentCounter = player.counters[player.activeCounterIndex];
+  // Get the current counter to display (life by default, or selected secondary counter)
+  const currentCounterType = selectedCounter || 'life';
+  const currentCounter = player.counters.find(c => c.type === currentCounterType) || player.counters[0];
 
   // Measure container dimensions
   useEffect(() => {
@@ -104,6 +78,11 @@ export const PlayerCard = ({ player, rotation = 0 }: PlayerCardProps) => {
     };
   }, []);
 
+  // Reset accumulated delta when switching counters
+  useEffect(() => {
+    setAccumulatedDelta(0);
+  }, [selectedCounter]);
+
   // For 90° or 270° rotation, we need to swap width and height
   const isSideways = rotation === 90 || rotation === 270;
 
@@ -123,6 +102,11 @@ export const PlayerCard = ({ player, rotation = 0 }: PlayerCardProps) => {
         transform: `rotate(${rotation}deg)`,
       };
 
+  const handleSelectCounter = useCallback((counterType: CounterType | null) => {
+    setSelectedCounter(counterType);
+    lightTap();
+  }, [lightTap]);
+
   return (
     <div
       ref={cardRef}
@@ -137,11 +121,9 @@ export const PlayerCard = ({ player, rotation = 0 }: PlayerCardProps) => {
       <div style={innerStyle}>
         {/* Counter display */}
         <CounterSlider
-          counters={player.counters}
-          activeIndex={player.activeCounterIndex}
+          counter={currentCounter}
           color={player.theme.primaryColor}
           delta={accumulatedDelta}
-          dragOffset={dragOffset}
         />
 
         {/* Touch zones for +/- and swipe */}
@@ -149,12 +131,15 @@ export const PlayerCard = ({ player, rotation = 0 }: PlayerCardProps) => {
           onIncrement={handleIncrement}
           rotation={rotation}
           isPortrait={isPortrait}
-          canGoNext={player.activeCounterIndex < player.counters.length - 1}
-          canGoPrev={player.activeCounterIndex > 0}
-          onSwipeNext={() => setActiveCounter(player.id, player.activeCounterIndex + 1)}
-          onSwipePrev={() => setActiveCounter(player.id, player.activeCounterIndex - 1)}
-          onBoundaryHit={lightTap}
-          dragOffset={dragOffset}
+          onVerticalSwipeUp={() => setShowCounterToggle(true)}
+        />
+
+        {/* Enabled secondary counters at bottom */}
+        <EnabledCountersDisplay
+          player={player}
+          selectedCounter={selectedCounter}
+          onSelectCounter={handleSelectCounter}
+          isSideways={isSideways}
         />
 
         {/* Settings button */}
@@ -176,7 +161,7 @@ export const PlayerCard = ({ player, rotation = 0 }: PlayerCardProps) => {
           isSideways={isSideways}
         />
 
-        {/* Player name and secondary counters */}
+        {/* Player name */}
         <div
           className="absolute pointer-events-none"
           style={{
@@ -186,8 +171,16 @@ export const PlayerCard = ({ player, rotation = 0 }: PlayerCardProps) => {
           }}
         >
           <div className="text-sm font-medium opacity-70">{player.name}</div>
-          <SecondaryCounters player={player} />
         </div>
+
+        {/* Counter toggle overlay */}
+        <CounterToggleOverlay
+          player={player}
+          isOpen={showCounterToggle}
+          onClose={() => setShowCounterToggle(false)}
+          rotation={rotation}
+          isPortrait={isPortrait}
+        />
       </div>
 
       {/* Settings overlay */}
