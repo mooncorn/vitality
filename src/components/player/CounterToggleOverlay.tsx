@@ -95,7 +95,7 @@ export const CounterToggleOverlay = ({
               Counters
             </h3>
 
-            <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
               {SECONDARY_COUNTERS.map(({ type, iconConfig, label }) => {
                 const isEnabled = player.enabledSecondaryCounters.includes(type);
 
@@ -103,39 +103,17 @@ export const CounterToggleOverlay = ({
                   <button
                     key={type}
                     onClick={() => handleToggle(type)}
-                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-colors ${
+                    className={`py-2 rounded-xl backdrop-blur-md border transition-all duration-200 flex flex-col items-center justify-center gap-2 ${
                       isEnabled
-                        ? 'bg-white/20 border border-white/30'
-                        : 'bg-white/5 border border-white/10'
+                        ? 'bg-blue-500/20 border-blue-500/30 text-blue-400'
+                        : 'bg-white/10 border-white/20 text-white/70 hover:bg-white/20'
                     }`}
                   >
-                    <div className="flex items-center gap-3">
-                      <CustomIcon
-                        config={iconConfig}
-                        size={20}
-                        color={isEnabled ? player.theme.primaryColor : '#888'}
-                      />
-                      <span
-                        className={`font-medium ${
-                          isEnabled ? 'text-white' : 'text-white/50'
-                        }`}
-                      >
-                        {label}
-                      </span>
-                    </div>
-
-                    {/* Toggle indicator */}
-                    <div
-                      className={`w-10 h-6 rounded-full transition-colors ${
-                        isEnabled ? 'bg-green-500' : 'bg-white/20'
-                      }`}
-                    >
-                      <motion.div
-                        className="w-5 h-5 bg-white rounded-full mt-0.5"
-                        animate={{ x: isEnabled ? 18 : 2 }}
-                        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                      />
-                    </div>
+                    <CustomIcon
+                      config={iconConfig}
+                      size={16}
+                      color={isEnabled ? '#60a5fa' : '#9ca3af'}
+                    />
                   </button>
                 );
               })}
