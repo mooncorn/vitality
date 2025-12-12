@@ -1,5 +1,5 @@
 // Counter Types
-export type CounterType = 'life' | 'poison' | 'energy' | 'commander' | 'experience';
+export type CounterType = 'life' | 'poison' | 'energy' | 'commander' | 'experience' | 'radiation';
 
 // Player Theme
 export interface PlayerTheme {

@@ -1,9 +1,10 @@
 import { useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDrag } from '@use-gesture/react';
-import { X, Shield, Zap, Sparkle } from 'lucide-react';
+import { X } from 'lucide-react';
 import type { CounterType, Player } from '@/types';
 import { useGameStore } from '@/store/gameStore';
+import { CustomIcon, type IconConfig } from '@/components/ui/CustomIcon';
 
 interface CounterToggleOverlayProps {
   player: Player;
@@ -13,10 +14,11 @@ interface CounterToggleOverlayProps {
   isPortrait?: boolean;
 }
 
-const SECONDARY_COUNTERS: { type: CounterType; icon: typeof Shield; label: string }[] = [
-  { type: 'poison', icon: Shield, label: 'Poison' },
-  { type: 'energy', icon: Zap, label: 'Energy' },
-  { type: 'experience', icon: Sparkle, label: 'Experience' },
+const SECONDARY_COUNTERS: { type: CounterType; iconConfig: IconConfig; label: string }[] = [
+  { type: 'poison', iconConfig: { className: 'ms ms-h' }, label: 'Poison' },
+  { type: 'energy', iconConfig: { className: 'ms ms-e' }, label: 'Energy' },
+  { type: 'experience', iconConfig: { text: 'XP' }, label: 'Experience' },
+  { type: 'radiation', iconConfig: { className: 'ms ms-counter-rad' }, label: 'Radiation' },
 ];
 
 const SWIPE_THRESHOLD = 50;
@@ -94,7 +96,7 @@ export const CounterToggleOverlay = ({
             </h3>
 
             <div className="space-y-2">
-              {SECONDARY_COUNTERS.map(({ type, icon: Icon, label }) => {
+              {SECONDARY_COUNTERS.map(({ type, iconConfig, label }) => {
                 const isEnabled = player.enabledSecondaryCounters.includes(type);
 
                 return (
@@ -108,7 +110,8 @@ export const CounterToggleOverlay = ({
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <Icon
+                      <CustomIcon
+                        config={iconConfig}
                         size={20}
                         color={isEnabled ? player.theme.primaryColor : '#888'}
                       />

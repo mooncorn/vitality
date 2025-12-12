@@ -1,5 +1,5 @@
-import { Shield, Zap, Sparkle } from 'lucide-react';
 import type { Player, CounterType } from '@/types';
+import { CustomIcon, type IconConfig } from '@/components/ui/CustomIcon';
 
 interface EnabledCountersDisplayProps {
   player: Player;
@@ -8,10 +8,11 @@ interface EnabledCountersDisplayProps {
   isSideways: boolean;
 }
 
-const iconMap: Record<string, typeof Shield> = {
-  poison: Shield,
-  energy: Zap,
-  experience: Sparkle,
+const iconConfig: Record<string, IconConfig> = {
+  poison: { className: 'ms ms-h' },
+  energy: { className: 'ms ms-e' },
+  experience: { text: 'XP' },
+  radiation: { className: 'ms ms-counter-rad' },
 };
 
 export const EnabledCountersDisplay = ({
@@ -33,8 +34,8 @@ export const EnabledCountersDisplay = ({
     >
       {enabledCounters.map(counterType => {
         const counter = player.counters.find(c => c.type === counterType);
-        const Icon = iconMap[counterType];
-        if (!counter || !Icon) return null;
+        const config = iconConfig[counterType];
+        if (!counter || !config) return null;
 
         const isSelected = selectedCounter === counterType;
 
@@ -49,7 +50,7 @@ export const EnabledCountersDisplay = ({
             }`}
             style={{ color: player.theme.primaryColor }}
           >
-            <Icon size={14} />
+            <CustomIcon config={config} size={14} color={player.theme.primaryColor} />
             <span className="text-sm font-bold tabular-nums">{counter.value}</span>
           </button>
         );
