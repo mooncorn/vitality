@@ -1,7 +1,50 @@
 {
   "name": "vitality",
   "compatibility_date": "2025-12-09",
+  "main": "worker/index.ts",
   "assets": {
-    "directory": "./dist"
+    "directory": "./dist",
+    "not_found_handling": "none"
+  },
+
+  // Durable Objects
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "LOBBY",
+        "class_name": "LobbySession"
+      }
+    ]
+  },
+
+  // Migrations for Durable Objects
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["LobbySession"]
+    }
+  ],
+
+  // KV Namespaces (create these with: wrangler kv namespace create <NAME>)
+  // Then replace the IDs below with the actual IDs
+  "kv_namespaces": [
+    {
+      "binding": "AUTH_KV",
+      "id": "c89ee58afd3d4cc5a011762d01fe456b"
+    },
+    {
+      "binding": "USERS_KV",
+      "id": "afe766d9e63b484fb331f4dd1a9d31d1"
+    }
+  ],
+
+  // Environment variables
+  "vars": {
+    "APP_URL": "https://vitality.pages.dev"
   }
+
+  // Secrets (set via wrangler secret put):
+  // - GOOGLE_CLIENT_ID
+  // - GOOGLE_CLIENT_SECRET
+  // - JWT_SECRET
 }

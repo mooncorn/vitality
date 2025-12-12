@@ -1,0 +1,60 @@
+import type { Player, CounterType } from '@/types';
+import { CustomIcon, type IconConfig } from '@/components/ui/CustomIcon';
+
+interface EnabledCountersDisplayProps {
+  player: Player;
+  selectedCounter: CounterType | null;
+  onSelectCounter: (counterType: CounterType | null) => void;
+  isSideways: boolean;
+}
+
+const iconConfig: Record<string, IconConfig> = {
+  poison: { className: 'ms ms-h' },
+  energy: { className: 'ms ms-e' },
+  experience: { text: 'XP' },
+  radiation: { className: 'ms ms-counter-rad' },
+};
+
+export const EnabledCountersDisplay = ({
+  player,
+  selectedCounter,
+  onSelectCounter,
+  isSideways,
+}: EnabledCountersDisplayProps) => {
+  const enabledCounters = player.enabledSecondaryCounters;
+
+  if (enabledCounters.length === 0) return null;
+
+  return (
+    <div
+      className="absolute left-1/2 -translate-x-1/2 flex gap-2 z-20 max-w-[90%] overflow-x-auto scrollbar-hide px-2 py-2"
+      style={{
+        bottom: isSideways ? '4px' : '12px',
+      }}
+    >
+      {enabledCounters.map(counterType => {
+        const counter = player.counters.find(c => c.type === counterType);
+        const config = iconConfig[counterType];
+        if (!counter || !config) return null;
+
+        const isSelected = selectedCounter === counterType;
+
+        return (
+          <button
+            key={counterType}
+            onClick={() => onSelectCounter(isSelected ? null : counterType)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all shrink-0 ${
+              isSelected
+                ? 'bg-white/30 border-2 border-white/60 scale-110'
+                : 'bg-black/30 backdrop-blur-sm border border-transparent hover:bg-black/40'
+            }`}
+            style={{ color: player.theme.primaryColor }}
+          >
+            <CustomIcon config={config} size={14} color={player.theme.primaryColor} />
+            <span className="text-sm font-bold tabular-nums">{counter.value}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+};

@@ -1,6 +1,5 @@
 import { useRef } from 'react';
 import { useDrag } from '@use-gesture/react';
-import { useMotionValue, animate } from 'framer-motion';
 import { useLongPress } from '@/hooks/useLongPress';
 import { useHaptics } from '@/hooks/useHaptics';
 
@@ -8,12 +7,7 @@ interface ControlOverlayProps {
   onIncrement: (delta: number) => void;
   rotation?: number;
   isPortrait?: boolean;
-  canGoNext: boolean;
-  canGoPrev: boolean;
-  onSwipeNext: () => void;
-  onSwipePrev: () => void;
-  onBoundaryHit?: () => void;
-  dragOffset: ReturnType<typeof useMotionValue<number>>;
+  onVerticalSwipeUp?: () => void;
 }
 
 const SWIPE_THRESHOLD = 50;
@@ -22,12 +16,7 @@ export const ControlOverlay = ({
   onIncrement,
   rotation = 0,
   isPortrait = false,
-  canGoNext,
-  canGoPrev,
-  onSwipeNext,
-  onSwipePrev,
-  onBoundaryHit,
-  dragOffset,
+  onVerticalSwipeUp,
 }: ControlOverlayProps) => {
   const { lightTap, mediumTap } = useHaptics();
   const centerRef = useRef<HTMLDivElement>(null);
@@ -60,37 +49,23 @@ export const ControlOverlay = ({
       // Total rotation = AppLayout rotation (90° if portrait) + card rotation
       const totalRotation = (rotation + (isPortrait ? 90 : 0)) % 360;
 
-      // Map screen movement to card-local horizontal movement
-      let cardMovement: number;
+      // Map screen movement to card-local vertical movement (for swipe up detection)
+      let cardVertical: number;
       if (totalRotation === 90) {
-        cardMovement = my;
+        cardVertical = -mx;
       } else if (totalRotation === 270) {
-        cardMovement = -my;
+        cardVertical = mx;
       } else if (totalRotation === 180) {
-        cardMovement = -mx;
+        cardVertical = -my;
       } else {
-        cardMovement = mx;
+        cardVertical = my;
       }
 
-      const isAtBoundary =
-        (cardMovement < 0 && !canGoNext) ||
-        (cardMovement > 0 && !canGoPrev);
-
       if (last) {
-        if (cardMovement < -SWIPE_THRESHOLD && canGoNext) {
-          onSwipeNext();
-        } else if (cardMovement > SWIPE_THRESHOLD && canGoPrev) {
-          onSwipePrev();
-        } else if (isAtBoundary && Math.abs(cardMovement) > 10) {
-          onBoundaryHit?.();
+        // Swipe up (negative vertical movement) opens the counter toggle overlay
+        if (cardVertical < -SWIPE_THRESHOLD) {
+          onVerticalSwipeUp?.();
         }
-        // Animate back to center
-        animate(dragOffset, 0, { type: 'spring', stiffness: 500, damping: 35 });
-      } else {
-        // Subtle hint - max 15px movement
-        const maxOffset = isAtBoundary ? 8 : 15;
-        const offset = Math.max(-maxOffset, Math.min(maxOffset, cardMovement * 0.15));
-        dragOffset.set(offset);
       }
     },
     { target: centerRef, filterTaps: true }

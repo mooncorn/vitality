@@ -6,6 +6,7 @@ export const getDefaultCounters = (startingLife: number): CounterState[] => [
   { id: generateId(), type: 'poison', value: 0, icon: 'Skull' },
   { id: generateId(), type: 'energy', value: 0, icon: 'Zap' },
   { id: generateId(), type: 'experience', value: 0, icon: 'Star' },
+  { id: generateId(), type: 'radiation', value: 0, icon: 'Radiation' },
 ];
 
 export const getCounterIcon = (type: CounterType): string => {
@@ -15,6 +16,7 @@ export const getCounterIcon = (type: CounterType): string => {
     energy: 'Zap',
     commander: 'Shield',
     experience: 'Star',
+    radiation: 'Radiation',
   };
   return icons[type];
 };
@@ -26,6 +28,7 @@ export const getCounterLabel = (type: CounterType): string => {
     energy: 'Energy',
     commander: 'Commander',
     experience: 'Experience',
+    radiation: 'Radiation',
   };
   return labels[type];
 };

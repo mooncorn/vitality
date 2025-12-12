@@ -71,3 +71,23 @@ export default defineConfig([
   },
 ])
 ```
+
+## To Deploy
+
+1. Create KV namespaces:
+```
+wrangler kv namespace create AUTH_KV
+wrangler kv namespace create USERS_KV
+```
+2. Update wrangler.jsonc with the KV namespace IDs
+3. Set secrets:
+```
+wrangler secret put GOOGLE_CLIENT_ID
+wrangler secret put GOOGLE_CLIENT_SECRET
+wrangler secret put JWT_SECRET
+```
+4. Set up Google OAuth in Google Cloud Console with redirect URI:
+https://your-domain/auth/google/callback
+
+5. Deploy:
+npm run build && wrangler deploy
