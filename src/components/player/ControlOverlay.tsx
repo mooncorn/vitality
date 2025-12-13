@@ -10,6 +10,7 @@ interface ControlOverlayProps {
   onVerticalSwipeUp?: () => void;
   onVerticalSwipeDown?: () => void;
   onHorizontalSwipe?: () => void;
+  disabled?: boolean;
 }
 
 const SWIPE_THRESHOLD = 50;
@@ -21,16 +22,19 @@ export const ControlOverlay = ({
   onVerticalSwipeUp,
   onVerticalSwipeDown,
   onHorizontalSwipe,
+  disabled = false,
 }: ControlOverlayProps) => {
   const { lightTap, mediumTap } = useHaptics();
   const centerRef = useRef<HTMLDivElement>(null);
 
   const handleTap = (delta: number) => {
+    if (disabled) return;
     lightTap();
     onIncrement(delta);
   };
 
   const handleLongPress = (delta: number) => {
+    if (disabled) return;
     mediumTap();
     onIncrement(delta);
   };
@@ -49,6 +53,8 @@ export const ControlOverlay = ({
 
   useDrag(
     ({ movement: [mx, my], last }) => {
+      if (disabled) return;
+
       // Touch coordinates are in screen space. Map them to card-local space.
       // Total rotation = AppLayout rotation (90° if portrait) + card rotation
       const totalRotation = (rotation + (isPortrait ? 90 : 0)) % 360;

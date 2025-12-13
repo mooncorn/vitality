@@ -188,7 +188,9 @@ export type GameAction =
   | { type: 'SET_PLAYER_THEME'; playerId: string; theme: Partial<PlayerTheme> }
   | { type: 'RESET_COUNTERS' }
   | { type: 'SET_PLAYER_COUNT'; count: number }
-  | { type: 'TOGGLE_SECONDARY_COUNTER'; playerId: string; counterType: CounterType; enabled: boolean };
+  | { type: 'TOGGLE_SECONDARY_COUNTER'; playerId: string; counterType: CounterType; enabled: boolean }
+  | { type: 'START_HIGHROLL'; results: Record<string, number> }
+  | { type: 'END_HIGHROLL' };
 
 // Client -> Host: Request current game state
 export interface P2PStateRequestMessage {

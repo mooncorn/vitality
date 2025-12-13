@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, RotateCcw, Users, Settings, Wifi, LogOut, Home, Copy, Check } from 'lucide-react';
+import { Menu, X, RotateCcw, Users, Settings, Wifi, LogOut, Home, Copy, Check, Dice5 } from 'lucide-react';
 import { useGameStore } from '@/store/gameStore';
 import { useMultiplayerStore, selectIsInLobby } from '@/store/multiplayerStore';
 import { SettingsPanel } from './SettingsPanel';
@@ -37,6 +37,8 @@ export const GlobalMenu = () => {
   const setGameMode = useGameStore(state => state.setGameMode);
   const playerCount = useGameStore(state => state.settings.playerCount);
   const gameMode = useGameStore(state => state.gameMode);
+  const highrollMode = useGameStore(state => state.highrollMode);
+  const startHighroll = useGameStore(state => state.startHighroll);
 
   const isInLobby = useMultiplayerStore(selectIsInLobby);
   const { lobbyCode, isHost, leaveLobby, suspendLobby } = useMultiplayerStore();
@@ -76,15 +78,22 @@ export const GlobalMenu = () => {
     setTimeout(() => setCopied(false), 2000);
   }, [lobbyCode]);
 
+  const handleHighroll = () => {
+    startHighroll();
+    setIsOpen(false);
+  };
+
   return (
     <>
-      {/* FAB Button */}
-      <button
-        className="fixed bottom-1/2 left-1/2 -translate-x-1/2 translate-y-1/2 z-40 w-10 h-10 rounded-full border flex items-center justify-center bg-black cursor-pointer"
-        onClick={() => setIsOpen(true)}
-      >
-        <Menu size={18} color="white" />
-      </button>
+      {/* FAB Button - hidden during highroll */}
+      {!highrollMode.isActive && (
+        <button
+          className="fixed bottom-1/2 left-1/2 -translate-x-1/2 translate-y-1/2 z-40 w-10 h-10 rounded-full border flex items-center justify-center bg-black cursor-pointer"
+          onClick={() => setIsOpen(true)}
+        >
+          <Menu size={18} color="white" />
+        </button>
+      )}
 
       {/* Menu overlay */}
       {isOpen &&
@@ -172,6 +181,11 @@ export const GlobalMenu = () => {
                 {/* Actions Grid */}
                 <div className="grid grid-cols-2 gap-3">
                   <GlassButton
+                    icon={<Dice5 size={22} />}
+                    label="Highroll"
+                    onClick={handleHighroll}
+                  />
+                  <GlassButton
                     icon={<Settings size={22} />}
                     label="Settings"
                     onClick={() => {
@@ -185,13 +199,11 @@ export const GlobalMenu = () => {
                     onClick={handleReset}
                     variant="danger"
                   />
-                  <div className="col-span-2">
-                    <GlassButton
-                      icon={<Home size={22} />}
-                      label="Back to Menu"
-                      onClick={handleBackToMenu}
-                    />
-                  </div>
+                  <GlassButton
+                    icon={<Home size={22} />}
+                    label="Back to Menu"
+                    onClick={handleBackToMenu}
+                  />
                 </div>
               </motion.div>
             </motion.div>

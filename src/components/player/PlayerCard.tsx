@@ -10,6 +10,7 @@ import { CounterToggleOverlay } from './CounterToggleOverlay';
 import { EnabledCountersDisplay } from './EnabledCountersDisplay';
 import { CommanderTargetOverlay } from '../commander/CommanderTargetOverlay';
 import { CommanderAttackerOverlay } from '../commander/CommanderAttackerOverlay';
+import { HighrollOverlay } from '../highroll/HighrollOverlay';
 
 interface PlayerCardProps {
   player: Player;
@@ -32,6 +33,7 @@ export const PlayerCard = ({ player, rotation = 0 }: PlayerCardProps) => {
   const enterCommanderAttackMode = useGameStore(state => state.enterCommanderAttackMode);
   const exitCommanderAttackMode = useGameStore(state => state.exitCommanderAttackMode);
   const updateCommanderDamage = useGameStore(state => state.updateCommanderDamage);
+  const highrollMode = useGameStore(state => state.highrollMode);
   const { lightTap, mediumTap } = useHaptics();
   const isPortrait = useForceLandscape();
 
@@ -169,6 +171,7 @@ export const PlayerCard = ({ player, rotation = 0 }: PlayerCardProps) => {
           onVerticalSwipeUp={() => setShowCounterToggle(true)}
           onVerticalSwipeDown={() => setShowOverlay(true)}
           onHorizontalSwipe={handleHorizontalSwipe}
+          disabled={highrollMode.isActive}
         />
 
         {/* Commander attacker overlay */}
@@ -191,6 +194,20 @@ export const PlayerCard = ({ player, rotation = 0 }: PlayerCardProps) => {
             onDealDamage={handleCommanderDamage}
             attackerRotation={commanderAttackMode.attackerRotation}
             targetRotation={rotation}
+          />
+        )}
+
+        {/* Highroll overlay */}
+        {highrollMode.isActive && (
+          <HighrollOverlay
+            diceValue={highrollMode.results[player.id] ?? 1}
+            color={player.theme.primaryColor}
+            backgroundColor={player.theme.backgroundColor}
+            rotation={rotation}
+            isPortrait={isPortrait}
+            isWinner={
+              highrollMode.results[player.id] === Math.max(...Object.values(highrollMode.results))
+            }
           />
         )}
 
