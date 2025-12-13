@@ -1,5 +1,4 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Settings } from 'lucide-react';
 import type { Player, CounterType } from '@/types';
 import { useGameStore } from '@/store/gameStore';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -132,6 +131,7 @@ export const PlayerCard = ({ player, rotation = 0 }: PlayerCardProps) => {
           rotation={rotation}
           isPortrait={isPortrait}
           onVerticalSwipeUp={() => setShowCounterToggle(true)}
+          onVerticalSwipeDown={() => setShowOverlay(true)}
         />
 
         {/* Enabled secondary counters at bottom */}
@@ -141,18 +141,6 @@ export const PlayerCard = ({ player, rotation = 0 }: PlayerCardProps) => {
           onSelectCounter={handleSelectCounter}
           isSideways={isSideways}
         />
-
-        {/* Settings button */}
-        <button
-          className="absolute p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors z-30"
-          style={{
-            top: isSideways ? '8px' : '12px',
-            right: isSideways ? '8px' : '12px',
-          }}
-          onClick={() => setShowOverlay(true)}
-        >
-          <Settings size={20} color={player.theme.primaryColor} />
-        </button>
 
         {/* Commander damage drag icon */}
         <DraggableCommanderIcon

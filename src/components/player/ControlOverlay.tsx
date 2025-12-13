@@ -8,6 +8,7 @@ interface ControlOverlayProps {
   rotation?: number;
   isPortrait?: boolean;
   onVerticalSwipeUp?: () => void;
+  onVerticalSwipeDown?: () => void;
 }
 
 const SWIPE_THRESHOLD = 50;
@@ -17,6 +18,7 @@ export const ControlOverlay = ({
   rotation = 0,
   isPortrait = false,
   onVerticalSwipeUp,
+  onVerticalSwipeDown,
 }: ControlOverlayProps) => {
   const { lightTap, mediumTap } = useHaptics();
   const centerRef = useRef<HTMLDivElement>(null);
@@ -65,6 +67,10 @@ export const ControlOverlay = ({
         // Swipe up (negative vertical movement) opens the counter toggle overlay
         if (cardVertical < -SWIPE_THRESHOLD) {
           onVerticalSwipeUp?.();
+        }
+        // Swipe down (positive vertical movement) opens the settings overlay
+        if (cardVertical > SWIPE_THRESHOLD) {
+          onVerticalSwipeDown?.();
         }
       }
     },
