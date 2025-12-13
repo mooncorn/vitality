@@ -80,10 +80,10 @@ export const GlobalMenu = () => {
     <>
       {/* FAB Button */}
       <button
-        className="fixed bottom-1/2 left-1/2 -translate-x-1/2 translate-y-1/2 z-40 w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center hover:bg-white/30 transition-colors"
+        className="fixed bottom-1/2 left-1/2 -translate-x-1/2 translate-y-1/2 z-40 w-10 h-10 rounded-full border flex items-center justify-center bg-black cursor-pointer"
         onClick={() => setIsOpen(true)}
       >
-        <Menu size={24} color="white" />
+        <Menu size={18} color="white" />
       </button>
 
       {/* Menu overlay */}

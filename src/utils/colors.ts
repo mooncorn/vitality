@@ -1,6 +1,6 @@
 export const MANA_COLORS = {
   white: '#bb9900ff',
-  green: '#008d47c7',
+  green: '#008d47ff',
   blue: '#002a96ff',
   red: '#b80000ff',
   black: '#1F1F1F',

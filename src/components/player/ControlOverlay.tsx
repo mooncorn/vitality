@@ -8,6 +8,8 @@ interface ControlOverlayProps {
   rotation?: number;
   isPortrait?: boolean;
   onVerticalSwipeUp?: () => void;
+  onVerticalSwipeDown?: () => void;
+  onHorizontalSwipe?: () => void;
 }
 
 const SWIPE_THRESHOLD = 50;
@@ -17,6 +19,8 @@ export const ControlOverlay = ({
   rotation = 0,
   isPortrait = false,
   onVerticalSwipeUp,
+  onVerticalSwipeDown,
+  onHorizontalSwipe,
 }: ControlOverlayProps) => {
   const { lightTap, mediumTap } = useHaptics();
   const centerRef = useRef<HTMLDivElement>(null);
@@ -49,22 +53,35 @@ export const ControlOverlay = ({
       // Total rotation = AppLayout rotation (90° if portrait) + card rotation
       const totalRotation = (rotation + (isPortrait ? 90 : 0)) % 360;
 
-      // Map screen movement to card-local vertical movement (for swipe up detection)
+      // Map screen movement to card-local vertical and horizontal movement
       let cardVertical: number;
+      let cardHorizontal: number;
       if (totalRotation === 90) {
         cardVertical = -mx;
+        cardHorizontal = my;
       } else if (totalRotation === 270) {
         cardVertical = mx;
+        cardHorizontal = -my;
       } else if (totalRotation === 180) {
         cardVertical = -my;
+        cardHorizontal = -mx;
       } else {
         cardVertical = my;
+        cardHorizontal = mx;
       }
 
       if (last) {
         // Swipe up (negative vertical movement) opens the counter toggle overlay
         if (cardVertical < -SWIPE_THRESHOLD) {
           onVerticalSwipeUp?.();
+        }
+        // Swipe down (positive vertical movement) opens the settings overlay
+        else if (cardVertical > SWIPE_THRESHOLD) {
+          onVerticalSwipeDown?.();
+        }
+        // Horizontal swipe (left or right) toggles commander attack mode
+        else if (Math.abs(cardHorizontal) > SWIPE_THRESHOLD) {
+          onHorizontalSwipe?.();
         }
       }
     },

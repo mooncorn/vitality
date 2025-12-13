@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { GameStore, Player, CounterType, PlayerTheme, GameSettings, CommanderDamageState, GameMode } from '@/types';
+import type { GameStore, Player, CounterType, PlayerTheme, GameSettings, CommanderDamageState, GameMode, CommanderAttackModeState } from '@/types';
 import type { GameAction } from '@/types/multiplayer';
 import { generateId } from '@/utils/id';
 import { getDefaultCounters } from '@/utils/counter';
@@ -74,9 +74,12 @@ const createPlayers = (count: number, startingLife: number): Player[] => {
   });
 };
 
-// Extended store interface with applyGameAction
+// Extended store interface with applyGameAction and commander attack mode
 interface ExtendedGameStore extends GameStore {
   applyGameAction: (action: GameAction) => void;
+  commanderAttackMode: CommanderAttackModeState;
+  enterCommanderAttackMode: (playerId: string, rotation: number) => void;
+  exitCommanderAttackMode: () => void;
 }
 
 export const useGameStore = create<ExtendedGameStore>()(
@@ -86,6 +89,7 @@ export const useGameStore = create<ExtendedGameStore>()(
       players: createPlayers(DEFAULT_SETTINGS.playerCount, DEFAULT_SETTINGS.startingLife),
       settings: DEFAULT_SETTINGS,
       gameMode: 'menu' as GameMode,
+      commanderAttackMode: { isActive: false, attackingPlayerId: null, attackerRotation: 0 },
 
       // Apply a game action (used by host when receiving from clients, or locally)
       applyGameAction: (action: GameAction) => {
@@ -210,6 +214,7 @@ export const useGameStore = create<ExtendedGameStore>()(
         set({
           players: newPlayers,
           settings: { ...settings, playerCount: clampedCount },
+          commanderAttackMode: { isActive: false, attackingPlayerId: null, attackerRotation: 0 },
         });
 
         // In multiplayer, broadcast to others
@@ -339,6 +344,7 @@ export const useGameStore = create<ExtendedGameStore>()(
         const { settings } = get();
         set({
           players: createPlayers(settings.playerCount, settings.startingLife),
+          commanderAttackMode: { isActive: false, attackingPlayerId: null, attackerRotation: 0 },
         });
       },
 
@@ -354,6 +360,7 @@ export const useGameStore = create<ExtendedGameStore>()(
             activeCounterIndex: 0,
             enabledSecondaryCounters: [],
           })),
+          commanderAttackMode: { isActive: false, attackingPlayerId: null, attackerRotation: 0 },
         }));
 
         if (isMultiplayer()) {
@@ -364,6 +371,15 @@ export const useGameStore = create<ExtendedGameStore>()(
       // Game mode
       setGameMode: (mode: GameMode) => {
         set({ gameMode: mode });
+      },
+
+      // Commander attack mode
+      enterCommanderAttackMode: (playerId: string, rotation: number) => {
+        set({ commanderAttackMode: { isActive: true, attackingPlayerId: playerId, attackerRotation: rotation } });
+      },
+
+      exitCommanderAttackMode: () => {
+        set({ commanderAttackMode: { isActive: false, attackingPlayerId: null, attackerRotation: 0 } });
       },
 
       // Multiplayer: Apply state received from host
@@ -388,7 +404,7 @@ export const useGameStore = create<ExtendedGameStore>()(
       partialize: (state) => ({
         players: state.players,
         settings: state.settings,
-        // Don't persist gameMode - always start on menu
+        // Don't persist gameMode or commanderAttackMode - always start fresh
       }),
     }
   )
