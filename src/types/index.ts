@@ -83,16 +83,9 @@ export interface GameActions {
 // Combined Store Type
 export type GameStore = GameState & GameActions;
 
-// Commander damage modal state
-export interface CommanderDamageModalState {
-  isOpen: boolean;
-  sourcePlayerId: string | null;
-  targetPlayerId: string | null;
-}
-
-// UI State for drag-drop
-export interface DragState {
-  isDragging: boolean;
-  sourcePlayerId: string | null;
-  position: { x: number; y: number } | null;
+// Commander attack mode state
+export interface CommanderAttackModeState {
+  isActive: boolean;
+  attackingPlayerId: string | null;
+  attackerRotation: number;
 }

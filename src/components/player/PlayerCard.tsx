@@ -5,10 +5,11 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useForceLandscape } from '@/hooks/useForceLandscape';
 import { CounterSlider } from './CounterSlider';
 import { ControlOverlay } from './ControlOverlay';
-import { DraggableCommanderIcon } from './DraggableCommanderIcon';
 import { PlayerOverlay } from './PlayerOverlay';
 import { CounterToggleOverlay } from './CounterToggleOverlay';
 import { EnabledCountersDisplay } from './EnabledCountersDisplay';
+import { CommanderTargetOverlay } from '../commander/CommanderTargetOverlay';
+import { CommanderAttackerOverlay } from '../commander/CommanderAttackerOverlay';
 
 interface PlayerCardProps {
   player: Player;
@@ -27,8 +28,19 @@ export const PlayerCard = ({ player, rotation = 0 }: PlayerCardProps) => {
   const cardRef = useRef<HTMLDivElement>(null);
 
   const updateCounter = useGameStore(state => state.updateCounter);
-  const { lightTap } = useHaptics();
+  const commanderAttackMode = useGameStore(state => state.commanderAttackMode);
+  const enterCommanderAttackMode = useGameStore(state => state.enterCommanderAttackMode);
+  const exitCommanderAttackMode = useGameStore(state => state.exitCommanderAttackMode);
+  const updateCommanderDamage = useGameStore(state => state.updateCommanderDamage);
+  const { lightTap, mediumTap } = useHaptics();
   const isPortrait = useForceLandscape();
+
+  // Commander attack mode state
+  const isAttacker = commanderAttackMode.isActive && commanderAttackMode.attackingPlayerId === player.id;
+  const isTarget = commanderAttackMode.isActive && commanderAttackMode.attackingPlayerId !== player.id;
+  const commanderDamageFromAttacker = commanderAttackMode.attackingPlayerId
+    ? player.commanderDamage[commanderAttackMode.attackingPlayerId] || 0
+    : 0;
 
   // Get the current counter to display (life by default, or selected secondary counter)
   const currentCounterType = selectedCounter || 'life';
@@ -106,10 +118,34 @@ export const PlayerCard = ({ player, rotation = 0 }: PlayerCardProps) => {
     lightTap();
   }, [lightTap]);
 
+  // Handle horizontal swipe to toggle commander attack mode
+  const handleHorizontalSwipe = useCallback(() => {
+    if (commanderAttackMode.isActive) {
+      // Only the attacker can exit the mode
+      if (isAttacker) {
+        exitCommanderAttackMode();
+        mediumTap();
+      }
+    } else {
+      // Enter commander attack mode with this player as the attacker
+      enterCommanderAttackMode(player.id, rotation);
+      mediumTap();
+    }
+  }, [commanderAttackMode.isActive, isAttacker, player.id, rotation, enterCommanderAttackMode, exitCommanderAttackMode, mediumTap]);
+
+  // Handle commander damage increment when this card is a target
+  const handleCommanderDamage = useCallback((delta: number) => {
+    if (isTarget && commanderAttackMode.attackingPlayerId) {
+      updateCommanderDamage(player.id, commanderAttackMode.attackingPlayerId, delta);
+      // Commander damage also affects life (positive damage = negative life)
+      updateCounter(player.id, 'life', -delta);
+    }
+  }, [isTarget, commanderAttackMode.attackingPlayerId, player.id, updateCommanderDamage, updateCounter]);
+
   return (
     <div
       ref={cardRef}
-      className="relative h-full w-full overflow-hidden"
+      className="relative h-full w-full overflow-hidden rounded-md"
       data-player-id={player.id}
     >
       {/* Background */}
@@ -132,22 +168,41 @@ export const PlayerCard = ({ player, rotation = 0 }: PlayerCardProps) => {
           isPortrait={isPortrait}
           onVerticalSwipeUp={() => setShowCounterToggle(true)}
           onVerticalSwipeDown={() => setShowOverlay(true)}
+          onHorizontalSwipe={handleHorizontalSwipe}
         />
 
-        {/* Enabled secondary counters at bottom */}
-        <EnabledCountersDisplay
-          player={player}
-          selectedCounter={selectedCounter}
-          onSelectCounter={handleSelectCounter}
-          isSideways={isSideways}
-        />
+        {/* Commander attacker overlay */}
+        {isAttacker && (
+          <CommanderAttackerOverlay
+            color={player.theme.primaryColor}
+            backgroundColor={player.theme.backgroundColor}
+            onExit={exitCommanderAttackMode}
+            rotation={rotation}
+            isPortrait={isPortrait}
+          />
+        )}
 
-        {/* Commander damage drag icon */}
-        <DraggableCommanderIcon
-          playerId={player.id}
-          color={player.theme.primaryColor}
-          isSideways={isSideways}
-        />
+        {/* Commander target overlay */}
+        {isTarget && (
+          <CommanderTargetOverlay
+            commanderDamage={commanderDamageFromAttacker}
+            color={player.theme.primaryColor}
+            backgroundColor={player.theme.backgroundColor}
+            onDealDamage={handleCommanderDamage}
+            attackerRotation={commanderAttackMode.attackerRotation}
+            targetRotation={rotation}
+          />
+        )}
+
+        {/* Enabled secondary counters at bottom (hidden in commander attack mode) */}
+        {!isTarget && !isAttacker && (
+          <EnabledCountersDisplay
+            player={player}
+            selectedCounter={selectedCounter}
+            onSelectCounter={handleSelectCounter}
+            isSideways={isSideways}
+          />
+        )}
 
         {/* Player name */}
         <div
@@ -166,8 +221,6 @@ export const PlayerCard = ({ player, rotation = 0 }: PlayerCardProps) => {
           player={player}
           isOpen={showCounterToggle}
           onClose={() => setShowCounterToggle(false)}
-          rotation={rotation}
-          isPortrait={isPortrait}
         />
       </div>
 

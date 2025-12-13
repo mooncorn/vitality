@@ -16,7 +16,8 @@ export const PlayerGrid = () => {
       gridTemplateRows: `repeat(${gridConfig.rows}, 1fr)`,
       height: '100%',
       width: '100%',
-      gap: 0,
+      gap: 6,
+      padding: 6,
     };
 
     if (gridConfig.areas) {

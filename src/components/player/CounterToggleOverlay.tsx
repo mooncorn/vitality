@@ -1,6 +1,4 @@
-import { useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useDrag } from '@use-gesture/react';
 import { X } from 'lucide-react';
 import type { CounterType, Player } from '@/types';
 import { useGameStore } from '@/store/gameStore';
@@ -10,8 +8,6 @@ interface CounterToggleOverlayProps {
   player: Player;
   isOpen: boolean;
   onClose: () => void;
-  rotation?: number;
-  isPortrait?: boolean;
 }
 
 const SECONDARY_COUNTERS: { type: CounterType; iconConfig: IconConfig; label: string }[] = [
@@ -21,52 +17,23 @@ const SECONDARY_COUNTERS: { type: CounterType; iconConfig: IconConfig; label: st
   { type: 'radiation', iconConfig: { className: 'ms ms-counter-rad' }, label: 'Radiation' },
 ];
 
-const SWIPE_THRESHOLD = 50;
-
 export const CounterToggleOverlay = ({
   player,
   isOpen,
   onClose,
-  rotation = 0,
-  isPortrait = false,
 }: CounterToggleOverlayProps) => {
   const toggleSecondaryCounter = useGameStore(state => state.toggleSecondaryCounter);
-  const overlayRef = useRef<HTMLDivElement>(null);
 
   const handleToggle = (counterType: CounterType) => {
     const isEnabled = player.enabledSecondaryCounters.includes(counterType);
     toggleSecondaryCounter(player.id, counterType, !isEnabled);
   };
 
-  // Swipe down to close
-  useDrag(
-    ({ movement: [mx, my], last }) => {
-      const totalRotation = (rotation + (isPortrait ? 90 : 0)) % 360;
-
-      let cardVertical: number;
-      if (totalRotation === 90) {
-        cardVertical = -mx;
-      } else if (totalRotation === 270) {
-        cardVertical = mx;
-      } else if (totalRotation === 180) {
-        cardVertical = -my;
-      } else {
-        cardVertical = my;
-      }
-
-      if (last && cardVertical > SWIPE_THRESHOLD) {
-        onClose();
-      }
-    },
-    { target: overlayRef, filterTaps: true }
-  );
-
   return (
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          ref={overlayRef}
-          className="absolute inset-0 z-40 flex flex-col items-center justify-center touch-none"
+          className="absolute inset-0 z-40 flex flex-col items-center justify-center"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -96,7 +63,7 @@ export const CounterToggleOverlay = ({
             </h3>
 
             <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
-              {SECONDARY_COUNTERS.map(({ type, iconConfig, label }) => {
+              {SECONDARY_COUNTERS.map(({ type, iconConfig }) => {
                 const isEnabled = player.enabledSecondaryCounters.includes(type);
 
                 return (
@@ -118,11 +85,6 @@ export const CounterToggleOverlay = ({
                 );
               })}
             </div>
-
-            {/* Swipe hint */}
-            <p className="text-white/40 text-xs text-center mt-4">
-              Swipe down to close
-            </p>
           </motion.div>
         </motion.div>
       )}
