@@ -9,6 +9,7 @@ interface LongPressOptions {
 export const useLongPress = ({ delay = 400, onLongPress, onTap }: LongPressOptions) => {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLongPressRef = useRef(false);
+  const isTouchRef = useRef(false);
 
   const clearTimer = useCallback(() => {
     if (timerRef.current) {
@@ -17,7 +18,11 @@ export const useLongPress = ({ delay = 400, onLongPress, onTap }: LongPressOptio
     }
   }, []);
 
-  const start = useCallback(() => {
+  const start = useCallback((isTouch: boolean) => {
+    // If this is a mouse event but we just had a touch, ignore it (prevents double-fire)
+    if (!isTouch && isTouchRef.current) return;
+
+    isTouchRef.current = isTouch;
     clearTimer();
     isLongPressRef.current = false;
 
@@ -27,7 +32,14 @@ export const useLongPress = ({ delay = 400, onLongPress, onTap }: LongPressOptio
     }, delay);
   }, [onLongPress, delay, clearTimer]);
 
-  const end = useCallback(() => {
+  const end = useCallback((isTouch: boolean) => {
+    // If this is a mouse event but we started with touch, ignore it
+    if (!isTouch && isTouchRef.current) {
+      // Reset touch flag after a short delay to allow future mouse events
+      setTimeout(() => { isTouchRef.current = false; }, 100);
+      return;
+    }
+
     const wasLongPress = isLongPressRef.current;
     clearTimer();
     isLongPressRef.current = false;
@@ -44,12 +56,11 @@ export const useLongPress = ({ delay = 400, onLongPress, onTap }: LongPressOptio
   }, [clearTimer]);
 
   return {
-    // Use both touch and mouse events for maximum compatibility
-    onTouchStart: start,
-    onTouchEnd: end,
+    onTouchStart: () => start(true),
+    onTouchEnd: () => end(true),
     onTouchCancel: cancel,
-    onMouseDown: start,
-    onMouseUp: end,
+    onMouseDown: () => start(false),
+    onMouseUp: () => end(false),
     onMouseLeave: cancel,
   };
 };
