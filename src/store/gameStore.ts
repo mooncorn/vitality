@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import type { GameStore, Player, CounterType, PlayerTheme, GameSettings, CommanderDamageState, GameMode, CommanderAttackModeState, HighrollModeState } from '@/types';
 import type { GameAction } from '@/types/multiplayer';
 import { generateId } from '@/utils/id';
@@ -37,11 +36,38 @@ const isHost = () => _isHost?.() ?? false;
 const sendAction = (action: GameAction) => _sendAction?.(action);
 const broadcastState = () => _broadcastState?.();
 
-const DEFAULT_SETTINGS: GameSettings = {
+// Helper to save session to localStorage
+const saveSessionToStorage = (sessionId: string, players: Player[], settings: GameSettings) => {
+  try {
+    const stored = localStorage.getItem('lobbies');
+    const lobbies = stored ? JSON.parse(stored) : [];
+    const updated = lobbies.map((l: { id: string }) =>
+      l.id === sessionId
+        ? { ...l, gameState: { players, settings } }
+        : l
+    );
+    localStorage.setItem('lobbies', JSON.stringify(updated));
+  } catch (err) {
+    console.error('Failed to save session to localStorage:', err);
+  }
+};
+
+// Helper to save current state if in local mode with a session
+const saveCurrentState = (get: () => ExtendedGameStore) => {
+  const { gameMode, currentSessionId, players, settings } = get();
+  if (gameMode === 'local' && currentSessionId) {
+    saveSessionToStorage(currentSessionId, players, settings);
+  }
+};
+
+export const DEFAULT_SETTINGS: GameSettings = {
   startingLife: 40,
   allowSleep: false,
   playerCount: 2,
 };
+
+// Create default players for a fresh game
+export const createDefaultPlayers = () => createPlayers(DEFAULT_SETTINGS.playerCount, DEFAULT_SETTINGS.startingLife);
 
 const createPlayers = (count: number, startingLife: number): Player[] => {
   // First pass: generate all IDs
@@ -83,17 +109,19 @@ interface ExtendedGameStore extends GameStore {
   highrollMode: HighrollModeState;
   startHighroll: () => void;
   endHighroll: () => void;
+  currentSessionId: string | null;
+  setCurrentSessionId: (sessionId: string | null) => void;
+  restoreState: (state: { players: Player[]; settings: GameSettings }, sessionId?: string) => void;
 }
 
-export const useGameStore = create<ExtendedGameStore>()(
-  persist(
-    (set, get) => ({
+export const useGameStore = create<ExtendedGameStore>()((set, get) => ({
       // Initial State
       players: createPlayers(DEFAULT_SETTINGS.playerCount, DEFAULT_SETTINGS.startingLife),
       settings: DEFAULT_SETTINGS,
       gameMode: 'menu' as GameMode,
       commanderAttackMode: { isActive: false, attackingPlayerId: null, attackerRotation: 0 },
       highrollMode: { isActive: false, results: {}, startTimestamp: null },
+      currentSessionId: null,
 
       // Apply a game action (used by host when receiving from clients, or locally)
       applyGameAction: (action: GameAction) => {
@@ -228,20 +256,26 @@ export const useGameStore = create<ExtendedGameStore>()(
 
       // Actions
       setPlayerCount: (count: number) => {
-        const { settings } = get();
+        const { settings, gameMode, currentSessionId } = get();
         const clampedCount = Math.min(6, Math.max(1, count));
 
         // Apply locally
         const newPlayers = createPlayers(clampedCount, settings.startingLife);
+        const newSettings = { ...settings, playerCount: clampedCount };
         set({
           players: newPlayers,
-          settings: { ...settings, playerCount: clampedCount },
+          settings: newSettings,
           commanderAttackMode: { isActive: false, attackingPlayerId: null, attackerRotation: 0 },
         });
 
         // In multiplayer, broadcast to others
         if (isMultiplayer()) {
           sendAction({ type: 'SET_PLAYER_COUNT', count: clampedCount });
+        }
+
+        // In local mode with a session, save to localStorage
+        if (gameMode === 'local' && currentSessionId) {
+          saveSessionToStorage(currentSessionId, newPlayers, newSettings);
         }
       },
 
@@ -260,9 +294,11 @@ export const useGameStore = create<ExtendedGameStore>()(
           }),
         }));
 
-        // Send action if multiplayer
+        // Send action if multiplayer, save to localStorage if local
         if (isMultiplayer()) {
           sendAction({ type: 'UPDATE_COUNTER', playerId, counterType, delta });
+        } else {
+          saveCurrentState(get);
         }
       },
 
@@ -282,6 +318,8 @@ export const useGameStore = create<ExtendedGameStore>()(
 
         if (isMultiplayer()) {
           sendAction({ type: 'SET_COUNTER', playerId, counterType, value });
+        } else {
+          saveCurrentState(get);
         }
       },
 
@@ -302,6 +340,8 @@ export const useGameStore = create<ExtendedGameStore>()(
 
         if (isMultiplayer()) {
           sendAction({ type: 'UPDATE_COMMANDER_DAMAGE', targetPlayerId, sourcePlayerId, delta });
+        } else {
+          saveCurrentState(get);
         }
       },
 
@@ -314,6 +354,8 @@ export const useGameStore = create<ExtendedGameStore>()(
 
         if (isMultiplayer()) {
           sendAction({ type: 'SET_PLAYER_NAME', playerId, name });
+        } else {
+          saveCurrentState(get);
         }
       },
 
@@ -328,6 +370,8 @@ export const useGameStore = create<ExtendedGameStore>()(
 
         if (isMultiplayer()) {
           sendAction({ type: 'SET_PLAYER_THEME', playerId, theme });
+        } else {
+          saveCurrentState(get);
         }
       },
 
@@ -353,6 +397,8 @@ export const useGameStore = create<ExtendedGameStore>()(
 
         if (isMultiplayer()) {
           sendAction({ type: 'TOGGLE_SECONDARY_COUNTER', playerId, counterType, enabled });
+        } else {
+          saveCurrentState(get);
         }
       },
 
@@ -363,9 +409,9 @@ export const useGameStore = create<ExtendedGameStore>()(
       },
 
       resetGame: () => {
-        const { settings } = get();
         set({
-          players: createPlayers(settings.playerCount, settings.startingLife),
+          players: createPlayers(DEFAULT_SETTINGS.playerCount, DEFAULT_SETTINGS.startingLife),
+          settings: DEFAULT_SETTINGS,
           commanderAttackMode: { isActive: false, attackingPlayerId: null, attackerRotation: 0 },
         });
       },
@@ -387,6 +433,8 @@ export const useGameStore = create<ExtendedGameStore>()(
 
         if (isMultiplayer()) {
           sendAction({ type: 'RESET_COUNTERS' });
+        } else {
+          saveCurrentState(get);
         }
       },
 
@@ -456,7 +504,7 @@ export const useGameStore = create<ExtendedGameStore>()(
       },
 
       // Multiplayer: Apply state received from host
-      applyRemoteState: (players: Player[], settings: GameSettings) => {
+      applyRemoteState: (players: Player[], settings: GameSettings, highrollMode?: HighrollModeState) => {
         const currentPlayers = get().players;
         // Preserve local activeCounterIndex - each client can view counters independently
         const mergedPlayers = players.map((remotePlayer, index) => {
@@ -468,17 +516,30 @@ export const useGameStore = create<ExtendedGameStore>()(
             activeCounterIndex: localPlayer?.activeCounterIndex ?? 0,
           };
         });
-        set({ players: mergedPlayers, settings });
+
+        const updates: Partial<ExtendedGameStore> = { players: mergedPlayers, settings };
+
+        // Apply highrollMode if provided
+        if (highrollMode) {
+          updates.highrollMode = highrollMode;
+        }
+
+        set(updates);
       },
-    }),
-    {
-      name: 'vitality-game-state',
-      version: 1,
-      partialize: (state) => ({
-        players: state.players,
-        settings: state.settings,
-        // Don't persist gameMode, commanderAttackMode, or highrollMode - always start fresh
-      }),
-    }
-  )
-);
+
+      // Set current session ID (for tracking which session is being played)
+      setCurrentSessionId: (sessionId: string | null) => {
+        set({ currentSessionId: sessionId });
+      },
+
+      // Restore saved game state (for session resume)
+  restoreState: (state: { players: Player[]; settings: GameSettings }, sessionId?: string) => {
+    set({
+      players: state.players,
+      settings: state.settings,
+      commanderAttackMode: { isActive: false, attackingPlayerId: null, attackerRotation: 0 },
+      highrollMode: { isActive: false, results: {}, startTimestamp: null },
+      currentSessionId: sessionId ?? null,
+    });
+  },
+}));

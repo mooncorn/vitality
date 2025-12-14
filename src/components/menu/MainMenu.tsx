@@ -1,50 +1,19 @@
 // MainMenu - Initial menu displayed when app opens
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Gamepad2, Globe, Link, Loader2, ArrowLeft, Plus, Users, Clock } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'framer-motion';
+import { Gamepad2, Globe, Link, Loader2, ArrowLeft, Plus, Users, Clock, Trash2 } from 'lucide-react';
 import { useGameStore } from '@/store/gameStore';
 import { useMultiplayerStore } from '@/store/multiplayerStore';
 import { useAuthStore, selectIsAuthenticated } from '@/store/authStore';
 import { AuthButton } from '@/components/auth/AuthButton';
+import { GlassButton } from '@/components/ui/GlassButton';
+import { formatRelativeTime } from '@/utils/time';
 import type { UserLobbyEntry } from '@/types/multiplayer';
 
-interface GlassButtonProps {
-  icon: React.ReactNode;
-  label: string;
-  onClick: () => void;
-  variant?: 'default' | 'primary';
-  disabled?: boolean;
-  loading?: boolean;
-}
-
-const GlassButton = ({ icon, label, onClick, variant = 'default', disabled, loading }: GlassButtonProps) => {
-  const baseClasses = "w-full py-4 rounded-xl backdrop-blur-md border transition-all duration-200 flex flex-col items-center justify-center gap-2";
-  const variantClasses = variant === 'primary'
-    ? "bg-blue-500/20 border-blue-500/30 hover:bg-blue-500/30 text-blue-400"
-    : "bg-white/10 border-white/20 hover:bg-white/20 text-white";
-  const disabledClasses = disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer";
-
-  return (
-    <button
-      className={`${baseClasses} ${variantClasses} ${disabledClasses}`}
-      onClick={onClick}
-      disabled={disabled || loading}
-    >
-      {loading ? <Loader2 size={22} className="animate-spin" /> : icon}
-      <span className="text-sm font-medium">{label}</span>
-    </button>
-  );
-};
-
-type MenuView = 'main' | 'create' | 'join';
+type MenuView = 'main' | 'local' | 'create' | 'join';
 
 export const MainMenu = () => {
   const [view, setView] = useState<MenuView>('main');
-  const setGameMode = useGameStore(state => state.setGameMode);
-
-  const handleLocalGame = () => {
-    setGameMode('local');
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900">
@@ -52,10 +21,13 @@ export const MainMenu = () => {
         {view === 'main' && (
           <MainView
             key="main"
-            onLocalGame={handleLocalGame}
+            onLocalGame={() => setView('local')}
             onCreateLobby={() => setView('create')}
             onJoinLobby={() => setView('join')}
           />
+        )}
+        {view === 'local' && (
+          <LocalGameView key="local" onBack={() => setView('main')} />
         )}
         {view === 'create' && (
           <CreateLobbyView key="create" onBack={() => setView('main')} />
@@ -117,68 +89,211 @@ const MainView = ({ onLocalGame, onCreateLobby, onJoinLobby }: MainViewProps) =>
   );
 };
 
-// Helper to format relative time
-function formatRelativeTime(timestamp: number): string {
-  const now = Date.now();
-  const diff = now - timestamp;
-  const minutes = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days = Math.floor(diff / 86400000);
-
-  if (minutes < 1) return 'Just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  if (hours < 24) return `${hours}h ago`;
-  return `${days}d ago`;
+// Reusable saved game item component for both local and multiplayer menus
+interface SavedGameItemProps {
+  lobby: UserLobbyEntry;
+  onSelect: () => void;
+  onDelete: () => void;
+  isLoading?: boolean;
+  showLobbyCode?: boolean;
 }
 
-// Lobby item component
-const LobbyItem = ({
+const DELETE_BUTTON_WIDTH = 60;
+const SWIPE_THRESHOLD = 30;
+
+const SavedGameItem = ({
   lobby,
-  onResume,
-  isResuming,
-}: {
-  lobby: UserLobbyEntry;
-  onResume: (code: string) => void;
-  isResuming: boolean;
-}) => {
+  onSelect,
+  onDelete,
+  isLoading = false,
+  showLobbyCode = false,
+}: SavedGameItemProps) => {
+  const playerCount = lobby.gameState.settings.playerCount;
+  const x = useMotionValue(0);
+  const deleteOpacity = useTransform(x, [-DELETE_BUTTON_WIDTH, 0], [1, 0]);
+  const constraintsRef = useRef<HTMLDivElement>(null);
+
+  const handleDragEnd = () => {
+    const currentX = x.get();
+    if (currentX < -SWIPE_THRESHOLD) {
+      // Snap open (with 4px gap)
+      animate(x, -(DELETE_BUTTON_WIDTH + 4), { type: 'spring', stiffness: 500, damping: 30 });
+    } else {
+      // Snap closed
+      animate(x, 0, { type: 'spring', stiffness: 500, damping: 30 });
+    }
+  };
+
+  const handleDelete = () => {
+    // Animate closed then delete
+    animate(x, 0, { type: 'spring', stiffness: 500, damping: 30 });
+    onDelete();
+  };
+
   return (
-    <button
-      onClick={() => onResume(lobby.lobbyCode)}
-      disabled={isResuming}
-      className="w-full p-3 rounded-xl backdrop-blur-md border transition-all duration-200 bg-green-500/10 border-green-500/30 hover:bg-green-500/20 hover:border-green-500/50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-    >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          {isResuming ? (
-            <Loader2 size={14} className="animate-spin text-green-500" />
+    <div className="relative overflow-hidden" ref={constraintsRef}>
+      {/* Delete button positioned behind */}
+      <motion.button
+        onClick={handleDelete}
+        disabled={isLoading}
+        style={{ opacity: deleteOpacity }}
+        className="absolute right-0 top-0 bottom-0 flex items-center justify-center bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl"
+        title="Delete session"
+      >
+        <div className="w-[56px] flex items-center justify-center">
+          <Trash2 size={20} className="text-white" />
+        </div>
+      </motion.button>
+
+      {/* Swipeable content */}
+      <motion.button
+        onClick={onSelect}
+        disabled={isLoading}
+        style={{ x }}
+        drag="x"
+        dragConstraints={{ left: -(DELETE_BUTTON_WIDTH + 4), right: 0 }}
+        dragElastic={0.1}
+        onDragEnd={handleDragEnd}
+        className="relative w-full p-3 backdrop-blur-md border transition-colors duration-200 bg-white/5 border-white/20 hover:bg-white/10 hover:border-white/30 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-left"
+      >
+        {showLobbyCode ? (
+          // Two-line layout for multiplayer: name on first line, code + details on second
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              {isLoading && (
+                <Loader2 size={14} className="animate-spin text-white/50" />
+              )}
+              <span className="font-medium text-white">
+                {lobby.name || 'Unnamed Session'}
+              </span>
+            </div>
+            <div className="flex items-center gap-3 text-white/60 text-sm">
+              {lobby.lobbyCode && (
+                <span className="font-mono text-xs">
+                  {lobby.lobbyCode}
+                </span>
+              )}
+              <div className="flex items-center gap-1">
+                <Users size={14} />
+                <span>{playerCount}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Clock size={14} />
+                <span>{formatRelativeTime(lobby.createdAt)}</span>
+              </div>
+            </div>
+          </div>
+        ) : (
+          // Two-line layout for local games: name on first line, details on second
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              {isLoading && (
+                <Loader2 size={14} className="animate-spin text-white/50" />
+              )}
+              <span className="font-medium text-white">
+                {lobby.name || 'Unnamed Session'}
+              </span>
+            </div>
+            <div className="flex items-center gap-3 text-white/60 text-sm">
+              <div className="flex items-center gap-1">
+                <Users size={14} />
+                <span>{playerCount}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Clock size={14} />
+                <span>{formatRelativeTime(lobby.createdAt)}</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </motion.button>
+    </div>
+  );
+};
+
+const LocalGameView = ({ onBack }: { onBack: () => void }) => {
+  const { myLobbies, fetchMyLobbies, deleteSession, isLoadingLobbies, createLocalSession } = useMultiplayerStore();
+  const setGameMode = useGameStore(state => state.setGameMode);
+  const restoreState = useGameStore(state => state.restoreState);
+
+  useEffect(() => {
+    fetchMyLobbies();
+  }, [fetchMyLobbies]);
+
+  const handleResume = (lobby: UserLobbyEntry) => {
+    if (lobby.gameState) {
+      restoreState(lobby.gameState, lobby.id);
+    }
+    setGameMode('local');
+  };
+
+  const handleNewGame = () => {
+    createLocalSession();
+    setGameMode('local');
+  };
+
+  return (
+    <>
+      <button
+        onClick={onBack}
+        className="fixed top-4 left-4 z-20 p-3 rounded-full bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/20 transition-colors"
+      >
+        <ArrowLeft size={24} color="white" />
+      </button>
+
+      <motion.div
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: -20 }}
+        className="flex flex-col items-center gap-6 p-8 w-full max-w-sm"
+      >
+        <h2 className="text-2xl font-bold text-white">Local Game</h2>
+
+        <div className="w-full space-y-4">
+          {isLoadingLobbies ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 size={24} className="animate-spin text-white/50" />
+            </div>
+          ) : myLobbies.length > 0 ? (
+            <div className="space-y-2">
+              <p className="text-white/60 text-sm text-center mb-3">Saved Games</p>
+              <div className="max-h-[30vh] overflow-y-auto space-y-2 pr-1">
+                {myLobbies.map((lobby) => (
+                  <SavedGameItem
+                    key={lobby.id}
+                    lobby={lobby}
+                    onSelect={() => handleResume(lobby)}
+                    onDelete={() => deleteSession(lobby.id)}
+                    showLobbyCode={false}
+                  />
+                ))}
+              </div>
+            </div>
           ) : (
-            <div className="w-2 h-2 rounded-full bg-green-500" />
+            <p className="text-white/60 text-center">
+              No saved games yet
+            </p>
           )}
-          <span className="font-mono font-bold text-white tracking-wider">
-            {lobby.lobbyCode}
-          </span>
+
+          <GlassButton
+            icon={<Plus size={22} />}
+            label="New Game"
+            onClick={handleNewGame}
+            variant="primary"
+          />
         </div>
-        <div className="flex items-center gap-3 text-white/60 text-sm">
-          <div className="flex items-center gap-1">
-            <Users size={14} />
-            <span>{lobby.playerCount || 0}</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <Clock size={14} />
-            <span>{formatRelativeTime(lobby.createdAt)}</span>
-          </div>
-        </div>
-      </div>
-    </button>
+      </motion.div>
+    </>
   );
 };
 
 const CreateLobbyView = ({ onBack }: { onBack: () => void }) => {
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
-  const { error, createLobby, resumeLobby, fetchMyLobbies, myLobbies, isLoadingLobbies } = useMultiplayerStore();
+  const { error, createLobby, resumeLobby, fetchMyLobbies, myLobbies, isLoadingLobbies, deleteSession } = useMultiplayerStore();
   const setGameMode = useGameStore(state => state.setGameMode);
+  const restoreState = useGameStore(state => state.restoreState);
   const [isCreating, setIsCreating] = useState(false);
-  const [resumingCode, setResumingCode] = useState<string | null>(null);
+  const [resumingId, setResumingId] = useState<string | null>(null);
 
   // Fetch lobbies when authenticated
   useEffect(() => {
@@ -199,19 +314,35 @@ const CreateLobbyView = ({ onBack }: { onBack: () => void }) => {
     }
   };
 
-  const handleResume = async (code: string) => {
-    setResumingCode(code);
+  const handleResume = async (id: string) => {
+    const session = myLobbies.find(l => l.id === id);
+    if (!session) return;
+
+    setResumingId(id);
     try {
-      await resumeLobby(code);
+      if (session.lobbyCode) {
+        // Session was previously hosted - resume the existing lobby
+        await resumeLobby(id);
+      } else {
+        // Local session - restore state first, then host with the same session ID
+        if (session.gameState) {
+          restoreState(session.gameState, id);
+        }
+        await createLobby(id);
+      }
       setGameMode('multiplayer');
     } catch {
       // Error handled in store
     } finally {
-      setResumingCode(null);
+      setResumingId(null);
     }
   };
 
-  const isLoading = isCreating || resumingCode !== null;
+  const handleDelete = (id: string) => {
+    deleteSession(id);
+  };
+
+  const isLoading = isCreating || resumingId !== null;
 
   return (
     <>
@@ -246,21 +377,23 @@ const CreateLobbyView = ({ onBack }: { onBack: () => void }) => {
             </div>
           )}
 
-          {/* Previous lobbies list */}
+          {/* Previous sessions list */}
           {isLoadingLobbies ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 size={24} className="animate-spin text-white/50" />
             </div>
           ) : myLobbies.length > 0 ? (
             <div className="space-y-2">
-              <p className="text-white/60 text-sm text-center mb-3">Recent Lobbies</p>
+              <p className="text-white/60 text-sm text-center mb-3">Saved Games</p>
               <div className="max-h-[30vh] overflow-y-auto space-y-2 pr-1">
                 {myLobbies.slice(0, 5).map((lobby) => (
-                  <LobbyItem
-                    key={lobby.lobbyCode}
+                  <SavedGameItem
+                    key={lobby.id}
                     lobby={lobby}
-                    onResume={handleResume}
-                    isResuming={isLoading && resumingCode === lobby.lobbyCode}
+                    onSelect={() => handleResume(lobby.id)}
+                    onDelete={() => handleDelete(lobby.id)}
+                    isLoading={isLoading && resumingId === lobby.id}
+                    showLobbyCode={true}
                   />
                 ))}
               </div>

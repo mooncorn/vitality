@@ -1,26 +1,20 @@
 import type { Player, CounterType } from '@/types';
-import { CustomIcon, type IconConfig } from '@/components/ui/CustomIcon';
+import { CustomIcon } from '@/components/ui/CustomIcon';
+import { COUNTER_ICON_CONFIG } from '@/constants/counters';
 
-interface EnabledCountersDisplayProps {
+interface SecondaryCounterBarProps {
   player: Player;
   selectedCounter: CounterType | null;
   onSelectCounter: (counterType: CounterType | null) => void;
   isSideways: boolean;
 }
 
-const iconConfig: Record<string, IconConfig> = {
-  poison: { className: 'ms ms-h' },
-  energy: { className: 'ms ms-e' },
-  experience: { text: 'XP' },
-  radiation: { className: 'ms ms-counter-rad' },
-};
-
-export const EnabledCountersDisplay = ({
+export const SecondaryCounterBar = ({
   player,
   selectedCounter,
   onSelectCounter,
   isSideways,
-}: EnabledCountersDisplayProps) => {
+}: SecondaryCounterBarProps) => {
   const enabledCounters = player.enabledSecondaryCounters;
 
   if (enabledCounters.length === 0) return null;
@@ -34,7 +28,7 @@ export const EnabledCountersDisplay = ({
     >
       {enabledCounters.map(counterType => {
         const counter = player.counters.find(c => c.type === counterType);
-        const config = iconConfig[counterType];
+        const config = COUNTER_ICON_CONFIG[counterType];
         if (!counter || !config) return null;
 
         const isSelected = selectedCounter === counterType;

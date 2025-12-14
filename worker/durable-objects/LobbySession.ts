@@ -73,6 +73,10 @@ export class LobbySession {
       return await this.handleGetInfo();
     }
 
+    if (url.pathname.endsWith('/close') && request.method === 'POST') {
+      return await this.handleForceClose(request);
+    }
+
     return new Response('Not found', { status: 404 });
   }
 
@@ -104,6 +108,38 @@ export class LobbySession {
 
     const info = this.getLobbyInfo();
     return Response.json(info);
+  }
+
+  private async handleForceClose(request: Request): Promise<Response> {
+    // Load state if needed
+    if (!this.lobbyState) {
+      this.lobbyState = await this.state.storage.get('lobbyState') as SignalingLobbyState | undefined ?? null;
+    }
+
+    if (!this.lobbyState) {
+      // Already closed, return success
+      return Response.json({ success: true, alreadyClosed: true });
+    }
+
+    // Parse reason from request body
+    let reason = 'Lobby closed by host';
+    try {
+      const body = await request.json() as { reason?: string };
+      if (body.reason) reason = body.reason;
+    } catch {
+      // Use default reason
+    }
+
+    // Broadcast closure to all connected clients with reason
+    this.broadcast({
+      type: 'SIGNALING_LOBBY_CLOSED',
+      payload: { reason },
+    });
+
+    // Close the lobby
+    await this.closeLobby();
+
+    return Response.json({ success: true });
   }
 
   private async handleWebSocket(request: Request): Promise<Response> {
@@ -318,6 +354,15 @@ export class LobbySession {
   }
 
   private async closeLobby(): Promise<void> {
+    // Clean up host -> lobby mapping in KV
+    if (this.lobbyState?.hostId) {
+      try {
+        await this.env.USERS_KV.delete(`host_lobby:${this.lobbyState.hostId}`);
+      } catch (err) {
+        console.error('Failed to cleanup host lobby mapping:', err);
+      }
+    }
+
     // Close all connections
     this.connections.forEach(ws => {
       try {

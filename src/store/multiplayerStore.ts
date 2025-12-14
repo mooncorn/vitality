@@ -12,7 +12,7 @@ import type {
   UserLobbyEntry,
 } from '@/types/multiplayer';
 import { useAuthStore } from './authStore';
-import { useGameStore, registerMultiplayerBridge, registerBroadcastCallback } from './gameStore';
+import { useGameStore, registerMultiplayerBridge, registerBroadcastCallback, DEFAULT_SETTINGS, createDefaultPlayers } from './gameStore';
 import {
   createPeerConnection,
   createDataChannel,
@@ -21,6 +21,7 @@ import {
   cleanupPeerConnection,
   CONNECTION_TIMEOUT_MS,
 } from '@/utils/webrtc';
+import { generateSessionName } from '@/utils/nameGenerator';
 
 const API_BASE = import.meta.env.PROD ? '' : '';
 const WS_BASE = window.location.protocol === 'https:'
@@ -68,13 +69,15 @@ interface MultiplayerState {
 
 interface MultiplayerActions {
   // Lobby management
-  createLobby: () => Promise<string>;
+  createLobby: (existingSessionId?: string) => Promise<string>;
   resumeLobby: (code: string) => Promise<void>;
   joinLobby: (code: string, token?: string) => Promise<void>;
   joinAsGuest: (code: string, displayName?: string) => Promise<void>;
   fetchMyLobbies: () => Promise<void>;
   suspendLobby: () => void;
   leaveLobby: () => void;
+  deleteSession: (code: string) => void;
+  createLocalSession: () => string;
 
   // Game control
   startGame: () => void;
@@ -102,12 +105,49 @@ let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 5;
 let pingInterval: ReturnType<typeof setInterval> | null = null;
 
-// Helper to remove a lobby from localStorage cache
-function removeLobbyFromCache(code: string): UserLobbyEntry[] {
+// Helper to remove a session from localStorage cache by id
+function removeSessionFromCache(id: string): UserLobbyEntry[] {
   try {
     const stored = localStorage.getItem('lobbies');
     const lobbies: UserLobbyEntry[] = stored ? JSON.parse(stored) : [];
-    const updated = lobbies.filter(l => l.lobbyCode !== code);
+    const updated = lobbies.filter(l => l.id !== id);
+    localStorage.setItem('lobbies', JSON.stringify(updated));
+    return updated;
+  } catch {
+    return [];
+  }
+}
+
+// Helper to get a specific session from cache by id
+function getCachedSession(id: string): UserLobbyEntry | undefined {
+  try {
+    const stored = localStorage.getItem('lobbies');
+    const lobbies: UserLobbyEntry[] = stored ? JSON.parse(stored) : [];
+    return lobbies.find(l => l.id === id);
+  } catch {
+    return undefined;
+  }
+}
+
+// Helper to get a session by lobbyCode (for multiplayer resume)
+function getCachedSessionByLobbyCode(lobbyCode: string): UserLobbyEntry | undefined {
+  try {
+    const stored = localStorage.getItem('lobbies');
+    const lobbies: UserLobbyEntry[] = stored ? JSON.parse(stored) : [];
+    return lobbies.find(l => l.lobbyCode === lobbyCode);
+  } catch {
+    return undefined;
+  }
+}
+
+// Helper to update a session in cache by id
+function updateSessionCache(id: string, updates: Partial<UserLobbyEntry>): UserLobbyEntry[] {
+  try {
+    const stored = localStorage.getItem('lobbies');
+    const lobbies: UserLobbyEntry[] = stored ? JSON.parse(stored) : [];
+    const updated = lobbies.map(l =>
+      l.id === id ? { ...l, ...updates } : l
+    );
     localStorage.setItem('lobbies', JSON.stringify(updated));
     return updated;
   } catch {
@@ -133,7 +173,7 @@ export const useMultiplayerStore = create<MultiplayerStore>()((set, get) => ({
   error: null,
 
   // Actions
-  createLobby: async () => {
+  createLobby: async (existingSessionId?: string) => {
     const { token } = useAuthStore.getState();
     if (!token) {
       throw new Error('Must be signed in to create a lobby');
@@ -156,25 +196,46 @@ export const useMultiplayerStore = create<MultiplayerStore>()((set, get) => ({
       }
 
       const { lobbyCode } = await response.json();
+      const gameStore = useGameStore.getState();
 
       set({ isHost: true });
 
-      // Save to localStorage
-      try {
-        const stored = localStorage.getItem('lobbies');
-        const lobbies: UserLobbyEntry[] = stored ? JSON.parse(stored) : [];
-        const newEntry: UserLobbyEntry = {
-          lobbyCode,
-          createdAt: Date.now(),
-          playerCount: 1,
-          status: 'active',
-        };
-        // Add to front, limit to 10 entries
-        const updated = [newEntry, ...lobbies.filter(l => l.lobbyCode !== lobbyCode)].slice(0, 10);
-        localStorage.setItem('lobbies', JSON.stringify(updated));
+      if (existingSessionId) {
+        // Hosting an existing session - keep current game state, just add lobbyCode
+        gameStore.setCurrentSessionId(existingSessionId);
+        const updated = updateSessionCache(existingSessionId, { lobbyCode });
         set({ myLobbies: updated });
-      } catch (err) {
-        console.error('Failed to save lobby to localStorage:', err);
+      } else {
+        // Creating a new lobby with fresh state
+        const sessionId = crypto.randomUUID();
+        const defaultPlayers = createDefaultPlayers();
+        const defaultSettings = { ...DEFAULT_SETTINGS };
+
+        gameStore.resetGame();
+        gameStore.setCurrentSessionId(sessionId);
+
+        // Save to localStorage with default state
+        try {
+          const stored = localStorage.getItem('lobbies');
+          const lobbies: UserLobbyEntry[] = stored ? JSON.parse(stored) : [];
+          const newEntry: UserLobbyEntry = {
+            id: sessionId,
+            lobbyCode,
+            name: generateSessionName(),
+            createdAt: Date.now(),
+            status: 'active',
+            gameState: {
+              players: defaultPlayers,
+              settings: defaultSettings,
+            },
+          };
+          // Add to front, limit to 10 entries
+          const updated = [newEntry, ...lobbies.filter(l => l.id !== sessionId)].slice(0, 10);
+          localStorage.setItem('lobbies', JSON.stringify(updated));
+          set({ myLobbies: updated });
+        } catch (err) {
+          console.error('Failed to save lobby to localStorage:', err);
+        }
       }
 
       // Connect to signaling server
@@ -188,16 +249,29 @@ export const useMultiplayerStore = create<MultiplayerStore>()((set, get) => ({
     }
   },
 
-  resumeLobby: async (code: string) => {
+  resumeLobby: async (sessionId: string) => {
     const { token } = useAuthStore.getState();
     if (!token) {
       throw new Error('Must be signed in to resume a lobby');
     }
 
+    // Find session by id
+    const session = getCachedSession(sessionId);
+    if (!session?.lobbyCode) {
+      throw new Error('Session not found or was never hosted');
+    }
+
     set({ error: null, isHost: true });
 
+    // Set current session ID and restore saved game state
+    const gameStore = useGameStore.getState();
+    gameStore.setCurrentSessionId(sessionId);
+    if (session.gameState) {
+      gameStore.restoreState(session.gameState, sessionId);
+    }
+
     try {
-      await get().joinLobby(code);
+      await get().joinLobby(session.lobbyCode);
     } catch (err) {
       // Reset isHost on failure
       set({ isHost: false });
@@ -289,10 +363,15 @@ export const useMultiplayerStore = create<MultiplayerStore>()((set, get) => ({
         const { connectionState, lobbyCode: currentCode } = get();
         if (connectionState !== 'reconnecting') {
           // Connection failed - lobby likely doesn't exist anymore
-          // Remove from cache and update state
+          // Find session by lobbyCode and remove from cache
           if (currentCode) {
-            const updated = removeLobbyFromCache(currentCode);
-            set({ error: 'Lobby not found', myLobbies: updated });
+            const session = getCachedSessionByLobbyCode(currentCode);
+            if (session) {
+              const updated = removeSessionFromCache(session.id);
+              set({ error: 'Lobby not found', myLobbies: updated });
+            } else {
+              set({ error: 'Lobby not found' });
+            }
           } else {
             set({ error: 'Connection error' });
           }
@@ -350,6 +429,19 @@ export const useMultiplayerStore = create<MultiplayerStore>()((set, get) => ({
 
   suspendLobby: () => {
     const { signalingWs, peerConnections, hostConnection } = get();
+    const gameStore = useGameStore.getState();
+    const currentSessionId = gameStore.currentSessionId;
+
+    // Save current game state to cache before suspending
+    if (currentSessionId) {
+      const updated = updateSessionCache(currentSessionId, {
+        gameState: {
+          players: gameStore.players,
+          settings: gameStore.settings,
+        },
+      });
+      set({ myLobbies: updated });
+    }
 
     // Send suspend message to server before closing (host only)
     if (signalingWs?.readyState === WebSocket.OPEN) {
@@ -397,16 +489,62 @@ export const useMultiplayerStore = create<MultiplayerStore>()((set, get) => ({
   },
 
   leaveLobby: () => {
-    const { lobbyCode, isHost } = get();
+    const { isHost } = get();
+    const gameStore = useGameStore.getState();
+    const currentSessionId = gameStore.currentSessionId;
 
     // If host is closing the lobby, remove it from cache
-    if (isHost && lobbyCode) {
-      const updated = removeLobbyFromCache(lobbyCode);
+    if (isHost && currentSessionId) {
+      const updated = removeSessionFromCache(currentSessionId);
       set({ myLobbies: updated });
     }
 
     get().cleanup();
-    useGameStore.getState().setGameMode('menu');
+    gameStore.setGameMode('menu');
+  },
+
+  deleteSession: (id: string) => {
+    const updated = removeSessionFromCache(id);
+    set({ myLobbies: updated });
+  },
+
+  createLocalSession: () => {
+    // Create fresh default state
+    const defaultPlayers = createDefaultPlayers();
+    const defaultSettings = { ...DEFAULT_SETTINGS };
+
+    // Reset game to fresh state and set the current session ID
+    const gameStore = useGameStore.getState();
+    gameStore.resetGame();
+
+    // Generate a UUID for the session
+    const sessionId = crypto.randomUUID();
+    gameStore.setCurrentSessionId(sessionId);
+
+    // Save to localStorage with default state (no lobbyCode since this is local only)
+    try {
+      const stored = localStorage.getItem('lobbies');
+      const lobbies: UserLobbyEntry[] = stored ? JSON.parse(stored) : [];
+      const newEntry: UserLobbyEntry = {
+        id: sessionId,
+        // lobbyCode is not set - this session was never hosted
+        name: generateSessionName(),
+        createdAt: Date.now(),
+        status: 'active',
+        gameState: {
+          players: defaultPlayers,
+          settings: defaultSettings,
+        },
+      };
+      // Add to front, limit to 10 entries
+      const updated = [newEntry, ...lobbies].slice(0, 10);
+      localStorage.setItem('lobbies', JSON.stringify(updated));
+      set({ myLobbies: updated });
+    } catch (err) {
+      console.error('Failed to save local session to localStorage:', err);
+    }
+
+    return sessionId;
   },
 
   startGame: () => {
@@ -467,6 +605,7 @@ export const useMultiplayerStore = create<MultiplayerStore>()((set, get) => ({
           players: gameStore.players,
           settings: gameStore.settings,
           gameStarted: get().gameStarted,
+          highrollMode: gameStore.highrollMode,
           timestamp: Date.now(),
         },
       };
@@ -546,6 +685,13 @@ export const useMultiplayerStore = create<MultiplayerStore>()((set, get) => ({
         gameStore.setGameMode('menu');
         break;
 
+      case 'SIGNALING_LOBBY_CLOSED':
+        // Lobby forcibly closed (e.g., host started new session)
+        get().cleanup();
+        set({ error: message.payload.reason });
+        gameStore.setGameMode('menu');
+        break;
+
       case 'SIGNALING_PONG':
         // Keepalive response
         break;
@@ -575,6 +721,7 @@ export const useMultiplayerStore = create<MultiplayerStore>()((set, get) => ({
                   players: gameStore.players,
                   settings: gameStore.settings,
                   gameStarted: get().gameStarted,
+                  highrollMode: gameStore.highrollMode,
                   timestamp: Date.now(),
                 },
               };
@@ -609,7 +756,7 @@ export const useMultiplayerStore = create<MultiplayerStore>()((set, get) => ({
       const hostMsg = message as P2PHostMessage;
       switch (hostMsg.type) {
         case 'P2P_STATE_SYNC':
-          gameStore.applyRemoteState(hostMsg.payload.players, hostMsg.payload.settings);
+          gameStore.applyRemoteState(hostMsg.payload.players, hostMsg.payload.settings, hostMsg.payload.highrollMode);
           set({ gameStarted: hostMsg.payload.gameStarted });
           break;
 
@@ -923,6 +1070,7 @@ registerBroadcastCallback(() => {
       players: gameStore.players,
       settings: gameStore.settings,
       gameStarted: state.gameStarted,
+      highrollMode: gameStore.highrollMode,
       timestamp: Date.now(),
     },
   };

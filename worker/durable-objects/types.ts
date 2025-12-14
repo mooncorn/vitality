@@ -147,6 +147,12 @@ export interface SignalingHostSuspendedMessage {
   type: 'SIGNALING_HOST_SUSPENDED';
 }
 
+// Server -> Clients: Lobby is being forcibly closed
+export interface SignalingLobbyClosedMessage {
+  type: 'SIGNALING_LOBBY_CLOSED';
+  payload: { reason: string };
+}
+
 // Ping/Pong for signaling connection keepalive
 export interface SignalingPingMessage {
   type: 'SIGNALING_PING';
@@ -181,5 +187,6 @@ export type SignalingServerMessage =
   | SignalingPeerLeftMessage
   | SignalingHostDisconnectedMessage
   | SignalingHostSuspendedMessage
+  | SignalingLobbyClosedMessage
   | SignalingPongMessage
   | SignalingErrorMessage;

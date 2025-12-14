@@ -1,44 +1,40 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Swords } from 'lucide-react';
 import { useLongPress } from '@/hooks/useLongPress';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useDeltaDisplay } from '@/hooks/useDeltaDisplay';
+import { LONG_PRESS_DELAY } from '@/constants';
 
-const DELTA_RESET_DELAY = 1500;
-
-interface CommanderTargetOverlayProps {
+interface CommanderDamagePanelProps {
   commanderDamage: number;
   color: string;
   backgroundColor: string;
   onDealDamage: (delta: number) => void;
   attackerRotation?: number;
   targetRotation?: number;
+  containerWidth?: number;
+  containerHeight?: number;
 }
 
-export const CommanderTargetOverlay = ({
+export const CommanderDamagePanel = ({
   commanderDamage,
   color,
   backgroundColor,
   onDealDamage,
   attackerRotation = 0,
   targetRotation = 0,
-}: CommanderTargetOverlayProps) => {
+  containerWidth = 0,
+  containerHeight = 0,
+}: CommanderDamagePanelProps) => {
   // Calculate the rotation needed to display content in attacker's orientation
-  // We need to counteract the target's rotation and apply the attacker's rotation
   const contentRotation = attackerRotation - targetRotation;
+
+  // Normalize rotation to 0-360 range
+  const normalizedRotation = ((contentRotation % 360) + 360) % 360;
+  const isSideways = normalizedRotation === 90 || normalizedRotation === 270;
   const { lightTap, mediumTap } = useHaptics();
-
-  const [accumulatedDelta, setAccumulatedDelta] = useState(0);
-  const deltaTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Clean up timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (deltaTimeoutRef.current) {
-        clearTimeout(deltaTimeoutRef.current);
-      }
-    };
-  }, []);
+  const { accumulatedDelta, trackDelta } = useDeltaDisplay();
 
   const handleDamage = useCallback((delta: number, isLongPress: boolean) => {
     if (isLongPress) {
@@ -47,29 +43,19 @@ export const CommanderTargetOverlay = ({
       lightTap();
     }
     onDealDamage(delta);
-
-    // Accumulate delta for display
-    setAccumulatedDelta(prev => prev + delta);
-
-    // Reset timeout
-    if (deltaTimeoutRef.current) {
-      clearTimeout(deltaTimeoutRef.current);
-    }
-    deltaTimeoutRef.current = setTimeout(() => {
-      setAccumulatedDelta(0);
-    }, DELTA_RESET_DELAY);
-  }, [onDealDamage, lightTap, mediumTap]);
+    trackDelta(delta);
+  }, [onDealDamage, lightTap, mediumTap, trackDelta]);
 
   const leftHandlers = useLongPress({
     onLongPress: () => handleDamage(-10, true),
     onTap: () => handleDamage(-1, false),
-    delay: 400,
+    delay: LONG_PRESS_DELAY,
   });
 
   const rightHandlers = useLongPress({
     onLongPress: () => handleDamage(10, true),
     onTap: () => handleDamage(1, false),
-    delay: 400,
+    delay: LONG_PRESS_DELAY,
   });
 
   return (
@@ -118,8 +104,21 @@ export const CommanderTargetOverlay = ({
 
       {/* Touch zones - rotated to match attacker's orientation */}
       <div
-        className="absolute inset-0 flex"
-        style={{ transform: `rotate(${contentRotation}deg)` }}
+        className="absolute flex"
+        style={
+          isSideways && containerWidth && containerHeight
+            ? {
+                top: '50%',
+                left: '50%',
+                width: containerHeight,
+                height: containerWidth,
+                transform: `translate(-50%, -50%) rotate(${contentRotation}deg)`,
+              }
+            : {
+                inset: 0,
+                transform: `rotate(${contentRotation}deg)`,
+              }
+        }
       >
         <div
           className={`flex-1 transition-colors touch-none ${

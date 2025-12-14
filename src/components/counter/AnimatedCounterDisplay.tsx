@@ -2,17 +2,17 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { CounterState } from '@/types';
 import { CounterView } from './CounterView';
 
-interface CounterSliderProps {
+interface AnimatedCounterDisplayProps {
   counter: CounterState;
   color?: string;
   delta?: number;
 }
 
-export const CounterSlider = ({
+export const AnimatedCounterDisplay = ({
   counter,
   color = '#ffffff',
   delta = 0,
-}: CounterSliderProps) => {
+}: AnimatedCounterDisplayProps) => {
   return (
     <div className="h-full w-full">
       <AnimatePresence mode="wait">

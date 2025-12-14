@@ -1,7 +1,7 @@
-import { Heart, Swords } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { CounterType } from '@/types';
-import { CustomIcon, type IconConfig } from '@/components/ui/CustomIcon';
+import { CustomIcon } from '@/components/ui/CustomIcon';
+import { COUNTER_ICON_CONFIG } from '@/constants/counters';
 
 interface CounterViewProps {
   type: CounterType;
@@ -10,17 +10,8 @@ interface CounterViewProps {
   delta?: number;
 }
 
-const iconConfig: Record<CounterType, IconConfig> = {
-  life: { icon: Heart },
-  poison: { className: 'ms ms-h' },
-  energy: { className: 'ms ms-e' },
-  commander: { icon: Swords },
-  experience: { text: 'XP' },
-  radiation: { className: 'ms ms-counter-rad' },
-};
-
 export const CounterView = ({ type, value, color = '#ffffff', delta = 0 }: CounterViewProps) => {
-  const config = iconConfig[type];
+  const config = COUNTER_ICON_CONFIG[type];
 
   return (
     <div className="flex flex-col items-center justify-center h-full w-full relative">
