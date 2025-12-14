@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { GameStore, Player, CounterType, PlayerTheme, GameSettings, CommanderDamageState, GameMode, CommanderAttackModeState } from '@/types';
+import type { GameStore, Player, CounterType, PlayerTheme, GameSettings, CommanderDamageState, GameMode, CommanderAttackModeState, HighrollModeState } from '@/types';
 import type { GameAction } from '@/types/multiplayer';
 import { generateId } from '@/utils/id';
 import { getDefaultCounters } from '@/utils/counter';
@@ -80,6 +80,9 @@ interface ExtendedGameStore extends GameStore {
   commanderAttackMode: CommanderAttackModeState;
   enterCommanderAttackMode: (playerId: string, rotation: number) => void;
   exitCommanderAttackMode: () => void;
+  highrollMode: HighrollModeState;
+  startHighroll: () => void;
+  endHighroll: () => void;
 }
 
 export const useGameStore = create<ExtendedGameStore>()(
@@ -90,6 +93,7 @@ export const useGameStore = create<ExtendedGameStore>()(
       settings: DEFAULT_SETTINGS,
       gameMode: 'menu' as GameMode,
       commanderAttackMode: { isActive: false, attackingPlayerId: null, attackerRotation: 0 },
+      highrollMode: { isActive: false, results: {}, startTimestamp: null },
 
       // Apply a game action (used by host when receiving from clients, or locally)
       applyGameAction: (action: GameAction) => {
@@ -195,6 +199,24 @@ export const useGameStore = create<ExtendedGameStore>()(
                 return { ...player, enabledSecondaryCounters };
               }),
             }));
+            break;
+
+          case 'START_HIGHROLL':
+            set({
+              highrollMode: {
+                isActive: true,
+                results: action.results,
+                startTimestamp: Date.now(),
+              },
+              // Exit commander attack mode if active
+              commanderAttackMode: { isActive: false, attackingPlayerId: null, attackerRotation: 0 },
+            });
+            break;
+
+          case 'END_HIGHROLL':
+            set({
+              highrollMode: { isActive: false, results: {}, startTimestamp: null },
+            });
             break;
         }
 
@@ -382,6 +404,57 @@ export const useGameStore = create<ExtendedGameStore>()(
         set({ commanderAttackMode: { isActive: false, attackingPlayerId: null, attackerRotation: 0 } });
       },
 
+      // Highroll mode
+      startHighroll: () => {
+        const { players, commanderAttackMode } = get();
+
+        // Exit commander attack mode if active
+        if (commanderAttackMode.isActive) {
+          set({ commanderAttackMode: { isActive: false, attackingPlayerId: null, attackerRotation: 0 } });
+        }
+
+        // Fisher-Yates shuffle to generate unique values 1-6
+        const availableValues = [1, 2, 3, 4, 5, 6];
+        for (let i = availableValues.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [availableValues[i], availableValues[j]] = [availableValues[j], availableValues[i]];
+        }
+
+        // Assign unique values to each player
+        const results: Record<string, number> = {};
+        players.forEach((player, index) => {
+          results[player.id] = availableValues[index];
+        });
+
+        set({
+          highrollMode: {
+            isActive: true,
+            results,
+            startTimestamp: Date.now(),
+          },
+        });
+
+        // Send action if multiplayer
+        if (isMultiplayer()) {
+          sendAction({ type: 'START_HIGHROLL', results });
+        }
+
+        // Auto-exit after 5 seconds
+        setTimeout(() => {
+          get().endHighroll();
+        }, 5000);
+      },
+
+      endHighroll: () => {
+        set({
+          highrollMode: { isActive: false, results: {}, startTimestamp: null },
+        });
+
+        if (isMultiplayer()) {
+          sendAction({ type: 'END_HIGHROLL' });
+        }
+      },
+
       // Multiplayer: Apply state received from host
       applyRemoteState: (players: Player[], settings: GameSettings) => {
         const currentPlayers = get().players;
@@ -404,7 +477,7 @@ export const useGameStore = create<ExtendedGameStore>()(
       partialize: (state) => ({
         players: state.players,
         settings: state.settings,
-        // Don't persist gameMode or commanderAttackMode - always start fresh
+        // Don't persist gameMode, commanderAttackMode, or highrollMode - always start fresh
       }),
     }
   )

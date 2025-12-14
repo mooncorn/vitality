@@ -89,3 +89,10 @@ export interface CommanderAttackModeState {
   attackingPlayerId: string | null;
   attackerRotation: number;
 }
+
+// Highroll mode state
+export interface HighrollModeState {
+  isActive: boolean;
+  results: Record<string, number>;  // playerId -> diceValue (1-6)
+  startTimestamp: number | null;
+}
