@@ -1,6 +1,6 @@
 // Multiplayer types for the frontend
 
-import type { CounterType, Player, GameSettings, PlayerTheme } from './index';
+import type { CounterType, Player, GameSettings, PlayerTheme, HighrollModeState } from './index';
 
 // User from OAuth
 export interface User {
@@ -32,12 +32,20 @@ export interface LobbyInfo {
   maxPeers: number;
 }
 
+// Saved game state for session persistence
+export interface SavedGameState {
+  players: Player[];
+  settings: GameSettings;
+}
+
 // User's lobby entry (from /api/lobby/my-lobbies)
 export interface UserLobbyEntry {
-  lobbyCode: string;
+  id: string; // UUID for internal tracking
+  lobbyCode?: string; // Only set if session was hosted (multiplayer join code)
+  name?: string; // Display name like "Blazing Phoenix"
   createdAt: number;
-  playerCount: number;
   status: 'active';
+  gameState: SavedGameState;
 }
 
 // ============ Signaling Messages (Client <-> Server via WebSocket) ============
@@ -140,6 +148,12 @@ export interface SignalingHostSuspendedMessage {
   type: 'SIGNALING_HOST_SUSPENDED';
 }
 
+// Server -> Clients: Lobby is being forcibly closed
+export interface SignalingLobbyClosedMessage {
+  type: 'SIGNALING_LOBBY_CLOSED';
+  payload: { reason: string };
+}
+
 // Ping/Pong for signaling connection keepalive
 export interface SignalingPingMessage {
   type: 'SIGNALING_PING';
@@ -174,6 +188,7 @@ export type SignalingServerMessage =
   | SignalingPeerLeftMessage
   | SignalingHostDisconnectedMessage
   | SignalingHostSuspendedMessage
+  | SignalingLobbyClosedMessage
   | SignalingPongMessage
   | SignalingErrorMessage;
 
@@ -204,6 +219,7 @@ export interface P2PStateSyncMessage {
     players: Player[];
     settings: GameSettings;
     gameStarted: boolean;
+    highrollMode: HighrollModeState;
     timestamp: number;
   };
 }

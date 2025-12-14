@@ -77,7 +77,7 @@ export interface GameActions {
   setGameMode: (mode: GameMode) => void;
 
   // Multiplayer
-  applyRemoteState: (players: Player[], settings: GameSettings) => void;
+  applyRemoteState: (players: Player[], settings: GameSettings, highrollMode?: HighrollModeState) => void;
 }
 
 // Combined Store Type

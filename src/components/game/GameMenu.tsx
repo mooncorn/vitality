@@ -1,33 +1,14 @@
 import { useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, RotateCcw, Users, Settings, Wifi, LogOut, Home, Copy, Check, Dice5 } from 'lucide-react';
+import { Menu, RotateCcw, Users, Settings, Wifi, LogOut, Home, Copy, Check, Dice5 } from 'lucide-react';
 import { useGameStore } from '@/store/gameStore';
 import { useMultiplayerStore, selectIsInLobby } from '@/store/multiplayerStore';
-import { SettingsPanel } from './SettingsPanel';
+import { SettingsModal } from './SettingsModal';
+import { GlassButton } from '@/components/ui/GlassButton';
+import { CloseButton } from '@/components/ui/CloseButton';
 
-interface GlassButtonProps {
-  icon: React.ReactNode;
-  label: string;
-  onClick: () => void;
-  variant?: 'default' | 'danger';
-}
-
-const GlassButton = ({ icon, label, onClick, variant = 'default' }: GlassButtonProps) => {
-  const baseClasses = "w-full py-4 rounded-xl backdrop-blur-md border transition-all duration-200 flex flex-col items-center justify-center gap-2";
-  const variantClasses = variant === 'danger'
-    ? "bg-red-500/10 border-red-500/20 hover:bg-red-500/20 text-red-400"
-    : "bg-white/10 border-white/20 hover:bg-white/20 text-white";
-
-  return (
-    <button className={`${baseClasses} ${variantClasses}`} onClick={onClick}>
-      {icon}
-      <span className="text-sm font-medium">{label}</span>
-    </button>
-  );
-};
-
-export const GlobalMenu = () => {
+export const GameMenu = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -109,12 +90,7 @@ export const GlobalMenu = () => {
               <div className="absolute inset-0 bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900" />
 
               {/* Close button - fixed to top right of screen */}
-              <button
-                className="fixed top-4 right-4 z-20 p-3 rounded-full bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/20 transition-colors"
-                onClick={() => setIsOpen(false)}
-              >
-                <X size={24} color="white" />
-              </button>
+              <CloseButton onClick={() => setIsOpen(false)} position="fixed" size="lg" />
 
               <motion.div
                 className="relative z-10 p-6 mx-4 max-w-sm w-full max-h-[85vh] overflow-y-auto"
@@ -168,12 +144,15 @@ export const GlobalMenu = () => {
                           <Copy size={16} className="text-green-400/60" />
                         )}
                       </button>
-                      <GlassButton
-                        icon={<LogOut size={20} />}
-                        label={isHost ? 'Close Lobby' : 'Leave Lobby'}
-                        onClick={handleLeaveLobby}
-                        variant="danger"
-                      />
+                      {/* Only show Leave Lobby for guests - hosts use Back to Menu to suspend */}
+                      {!isHost && (
+                        <GlassButton
+                          icon={<LogOut size={20} />}
+                          label="Leave Lobby"
+                          onClick={handleLeaveLobby}
+                          variant="danger"
+                        />
+                      )}
                     </div>
                   </div>
                 )}
@@ -212,7 +191,7 @@ export const GlobalMenu = () => {
         )}
 
       {/* Settings panel */}
-      {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
     </>
   );
 };

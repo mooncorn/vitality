@@ -19,7 +19,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
   if (isPortrait) {
     return (
       <div
-        className="bg-black overflow-hidden touch-none select-none"
+        className="bg-black overflow-hidden select-none"
         style={{
           position: 'fixed',
           top: '50%',
@@ -36,7 +36,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
   }
 
   return (
-    <div className="w-screen bg-black overflow-hidden touch-none select-none" style={{ height: '100dvh' }}>
+    <div className="w-screen bg-black overflow-hidden select-none" style={{ height: '100dvh' }}>
       {children}
     </div>
   );

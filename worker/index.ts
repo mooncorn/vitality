@@ -82,6 +82,29 @@ export default {
           return errorResponse('Unauthorized', 401);
         }
 
+        // Check for existing hosted lobby and close it
+        const existingLobbyRecord = await env.USERS_KV.get(`host_lobby:${user.id}`);
+        if (existingLobbyRecord) {
+          try {
+            const record = JSON.parse(existingLobbyRecord) as { lobbyCode: string; createdAt: number };
+
+            // Close the existing lobby
+            const existingLobbyId = env.LOBBY.idFromName(record.lobbyCode);
+            const existingLobbyStub = env.LOBBY.get(existingLobbyId);
+
+            await existingLobbyStub.fetch(new Request('https://internal/close', {
+              method: 'POST',
+              body: JSON.stringify({ reason: 'Host started new session' }),
+            }));
+          } catch (err) {
+            // Log but don't fail - the old lobby may already be gone
+            console.error('Failed to close existing lobby:', err);
+          }
+
+          // Delete the old record regardless of close success
+          await env.USERS_KV.delete(`host_lobby:${user.id}`);
+        }
+
         // Generate unique lobby code
         const lobbyCode = generateLobbyCode();
 
@@ -97,6 +120,13 @@ export default {
             hostId: user.id,
           }),
         }));
+
+        // Store the host -> lobby mapping with 24h TTL
+        await env.USERS_KV.put(
+          `host_lobby:${user.id}`,
+          JSON.stringify({ lobbyCode, createdAt: Date.now() }),
+          { expirationTtl: 86400 } // 24 hours
+        );
 
         return jsonResponse({ lobbyCode });
       }

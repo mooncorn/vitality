@@ -1,8 +1,9 @@
 import { Loader2 } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PlayerGrid } from '@/components/layout/PlayerGrid';
-import { GlobalMenu } from '@/components/menu/GlobalMenu';
+import { GameMenu } from '@/components/game/GameMenu';
 import { MainMenu } from '@/components/menu/MainMenu';
+import { OverlayProvider } from '@/contexts/OverlayContext';
 import { useGameStore } from '@/store/gameStore';
 import { useMultiplayerStore } from '@/store/multiplayerStore';
 
@@ -25,10 +26,12 @@ function App() {
   }
 
   return (
-    <AppLayout>
-      <PlayerGrid />
-      <GlobalMenu />
-    </AppLayout>
+    <OverlayProvider>
+      <AppLayout>
+        <PlayerGrid />
+        <GameMenu />
+      </AppLayout>
+    </OverlayProvider>
   );
 }
 

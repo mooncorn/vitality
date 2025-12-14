@@ -3,29 +3,26 @@ import type { Player, CounterType } from '@/types';
 import { useGameStore } from '@/store/gameStore';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useForceLandscape } from '@/hooks/useForceLandscape';
-import { CounterSlider } from './CounterSlider';
-import { ControlOverlay } from './ControlOverlay';
-import { PlayerOverlay } from './PlayerOverlay';
-import { CounterToggleOverlay } from './CounterToggleOverlay';
-import { EnabledCountersDisplay } from './EnabledCountersDisplay';
-import { CommanderTargetOverlay } from '../commander/CommanderTargetOverlay';
-import { CommanderAttackerOverlay } from '../commander/CommanderAttackerOverlay';
-import { HighrollOverlay } from '../highroll/HighrollOverlay';
+import { useDeltaDisplay } from '@/hooks/useDeltaDisplay';
+import { AnimatedCounterDisplay } from '../counter/AnimatedCounterDisplay';
+import { GestureLayer } from './GestureLayer';
+import { PlayerSettingsModal } from './PlayerSettingsModal';
+import { CounterToggleModal } from './CounterToggleModal';
+import { SecondaryCounterBar } from '../counter/SecondaryCounterBar';
+import { CommanderDamagePanel } from '../commander/CommanderDamagePanel';
+import { CommanderAttackIndicator } from '../commander/CommanderAttackIndicator';
+import { DiceRollDisplay } from '../game/DiceRollDisplay';
 
 interface PlayerCardProps {
   player: Player;
   rotation?: number;
 }
 
-const DELTA_RESET_DELAY = 1500;
-
 export const PlayerCard = ({ player, rotation = 0 }: PlayerCardProps) => {
   const [showOverlay, setShowOverlay] = useState(false);
   const [showCounterToggle, setShowCounterToggle] = useState(false);
   const [selectedCounter, setSelectedCounter] = useState<CounterType | null>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
-  const [accumulatedDelta, setAccumulatedDelta] = useState(0);
-  const deltaTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
 
   const updateCounter = useGameStore(state => state.updateCounter);
@@ -36,6 +33,9 @@ export const PlayerCard = ({ player, rotation = 0 }: PlayerCardProps) => {
   const highrollMode = useGameStore(state => state.highrollMode);
   const { lightTap, mediumTap } = useHaptics();
   const isPortrait = useForceLandscape();
+
+  // Use shared delta display hook
+  const { accumulatedDelta, trackDelta, resetDelta } = useDeltaDisplay();
 
   // Commander attack mode state
   const isAttacker = commanderAttackMode.isActive && commanderAttackMode.attackingPlayerId === player.id;
@@ -67,34 +67,15 @@ export const PlayerCard = ({ player, rotation = 0 }: PlayerCardProps) => {
   const handleIncrement = useCallback(
     (delta: number) => {
       updateCounter(player.id, currentCounter.type, delta);
-
-      // Accumulate delta for display
-      setAccumulatedDelta(prev => prev + delta);
-
-      // Reset timeout
-      if (deltaTimeoutRef.current) {
-        clearTimeout(deltaTimeoutRef.current);
-      }
-      deltaTimeoutRef.current = setTimeout(() => {
-        setAccumulatedDelta(0);
-      }, DELTA_RESET_DELAY);
+      trackDelta(delta);
     },
-    [player.id, currentCounter.type, updateCounter]
+    [player.id, currentCounter.type, updateCounter, trackDelta]
   );
-
-  // Clean up timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (deltaTimeoutRef.current) {
-        clearTimeout(deltaTimeoutRef.current);
-      }
-    };
-  }, []);
 
   // Reset accumulated delta when switching counters
   useEffect(() => {
-    setAccumulatedDelta(0);
-  }, [selectedCounter]);
+    resetDelta();
+  }, [selectedCounter, resetDelta]);
 
   // For 90° or 270° rotation, we need to swap width and height
   const isSideways = rotation === 90 || rotation === 270;
@@ -157,14 +138,14 @@ export const PlayerCard = ({ player, rotation = 0 }: PlayerCardProps) => {
       />
       <div style={innerStyle}>
         {/* Counter display */}
-        <CounterSlider
+        <AnimatedCounterDisplay
           counter={currentCounter}
           color={player.theme.primaryColor}
           delta={accumulatedDelta}
         />
 
         {/* Touch zones for +/- and swipe */}
-        <ControlOverlay
+        <GestureLayer
           onIncrement={handleIncrement}
           rotation={rotation}
           isPortrait={isPortrait}
@@ -174,9 +155,9 @@ export const PlayerCard = ({ player, rotation = 0 }: PlayerCardProps) => {
           disabled={highrollMode.isActive}
         />
 
-        {/* Commander attacker overlay */}
+        {/* Commander attacker indicator */}
         {isAttacker && (
-          <CommanderAttackerOverlay
+          <CommanderAttackIndicator
             color={player.theme.primaryColor}
             backgroundColor={player.theme.backgroundColor}
             onExit={exitCommanderAttackMode}
@@ -185,21 +166,23 @@ export const PlayerCard = ({ player, rotation = 0 }: PlayerCardProps) => {
           />
         )}
 
-        {/* Commander target overlay */}
+        {/* Commander damage panel */}
         {isTarget && (
-          <CommanderTargetOverlay
+          <CommanderDamagePanel
             commanderDamage={commanderDamageFromAttacker}
             color={player.theme.primaryColor}
             backgroundColor={player.theme.backgroundColor}
             onDealDamage={handleCommanderDamage}
             attackerRotation={commanderAttackMode.attackerRotation}
             targetRotation={rotation}
+            containerWidth={isSideways ? dimensions.height : dimensions.width}
+            containerHeight={isSideways ? dimensions.width : dimensions.height}
           />
         )}
 
-        {/* Highroll overlay */}
+        {/* Dice roll display */}
         {highrollMode.isActive && (
-          <HighrollOverlay
+          <DiceRollDisplay
             diceValue={highrollMode.results[player.id] ?? 1}
             color={player.theme.primaryColor}
             backgroundColor={player.theme.backgroundColor}
@@ -211,9 +194,9 @@ export const PlayerCard = ({ player, rotation = 0 }: PlayerCardProps) => {
           />
         )}
 
-        {/* Enabled secondary counters at bottom (hidden in commander attack mode) */}
-        {!isTarget && !isAttacker && (
-          <EnabledCountersDisplay
+        {/* Secondary counter bar (hidden in commander attack mode and highroll) */}
+        {!isTarget && !isAttacker && !highrollMode.isActive && (
+          <SecondaryCounterBar
             player={player}
             selectedCounter={selectedCounter}
             onSelectCounter={handleSelectCounter}
@@ -233,17 +216,17 @@ export const PlayerCard = ({ player, rotation = 0 }: PlayerCardProps) => {
           <div className="text-sm font-medium opacity-70">{player.name}</div>
         </div>
 
-        {/* Counter toggle overlay */}
-        <CounterToggleOverlay
+        {/* Counter toggle modal */}
+        <CounterToggleModal
           player={player}
           isOpen={showCounterToggle}
           onClose={() => setShowCounterToggle(false)}
         />
       </div>
 
-      {/* Settings overlay */}
+      {/* Player settings modal */}
       {showOverlay && (
-        <PlayerOverlay
+        <PlayerSettingsModal
           player={player}
           onClose={() => setShowOverlay(false)}
         />

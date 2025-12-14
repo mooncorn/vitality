@@ -1,30 +1,24 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
-import type { CounterType, Player } from '@/types';
+import type { Player } from '@/types';
 import { useGameStore } from '@/store/gameStore';
-import { CustomIcon, type IconConfig } from '@/components/ui/CustomIcon';
+import { CustomIcon } from '@/components/ui/CustomIcon';
+import { COUNTER_ICON_CONFIG, SECONDARY_COUNTERS } from '@/constants/counters';
 
-interface CounterToggleOverlayProps {
+interface CounterToggleModalProps {
   player: Player;
   isOpen: boolean;
   onClose: () => void;
 }
 
-const SECONDARY_COUNTERS: { type: CounterType; iconConfig: IconConfig; label: string }[] = [
-  { type: 'poison', iconConfig: { className: 'ms ms-h' }, label: 'Poison' },
-  { type: 'energy', iconConfig: { className: 'ms ms-e' }, label: 'Energy' },
-  { type: 'experience', iconConfig: { text: 'XP' }, label: 'Experience' },
-  { type: 'radiation', iconConfig: { className: 'ms ms-counter-rad' }, label: 'Radiation' },
-];
-
-export const CounterToggleOverlay = ({
+export const CounterToggleModal = ({
   player,
   isOpen,
   onClose,
-}: CounterToggleOverlayProps) => {
+}: CounterToggleModalProps) => {
   const toggleSecondaryCounter = useGameStore(state => state.toggleSecondaryCounter);
 
-  const handleToggle = (counterType: CounterType) => {
+  const handleToggle = (counterType: typeof SECONDARY_COUNTERS[number]['type']) => {
     const isEnabled = player.enabledSecondaryCounters.includes(counterType);
     toggleSecondaryCounter(player.id, counterType, !isEnabled);
   };
@@ -36,11 +30,14 @@ export const CounterToggleOverlay = ({
           className="absolute inset-0 z-40 flex flex-col items-center justify-center"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
+          exit={{ opacity: 0, pointerEvents: 'none' as const }}
+          transition={{ duration: 0.15 }}
         >
-          {/* Glass background */}
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-md" />
+          {/* Glass background - click to close */}
+          <div
+            className="absolute inset-0 bg-black/70 backdrop-blur-md"
+            onClick={onClose}
+          />
 
           {/* Close button */}
           <button
@@ -63,8 +60,9 @@ export const CounterToggleOverlay = ({
             </h3>
 
             <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
-              {SECONDARY_COUNTERS.map(({ type, iconConfig }) => {
+              {SECONDARY_COUNTERS.map(({ type }) => {
                 const isEnabled = player.enabledSecondaryCounters.includes(type);
+                const iconConfig = COUNTER_ICON_CONFIG[type];
 
                 return (
                   <button

@@ -2,10 +2,10 @@ import { useRef } from 'react';
 import { useDrag } from '@use-gesture/react';
 import { Swords } from 'lucide-react';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useRotationTransform } from '@/hooks/useRotationTransform';
+import { SWIPE_THRESHOLD } from '@/constants';
 
-const SWIPE_THRESHOLD = 50;
-
-interface CommanderAttackerOverlayProps {
+interface CommanderAttackIndicatorProps {
   color: string;
   backgroundColor: string;
   onExit: () => void;
@@ -13,33 +13,22 @@ interface CommanderAttackerOverlayProps {
   isPortrait?: boolean;
 }
 
-export const CommanderAttackerOverlay = ({
+export const CommanderAttackIndicator = ({
   color,
   backgroundColor,
   onExit,
   rotation = 0,
   isPortrait = false,
-}: CommanderAttackerOverlayProps) => {
+}: CommanderAttackIndicatorProps) => {
   const overlayRef = useRef<HTMLDivElement>(null);
   const { mediumTap } = useHaptics();
+  const { mapMovementToLocal } = useRotationTransform({ rotation, isPortrait });
 
   useDrag(
     ({ movement: [mx, my], last }) => {
-      const totalRotation = (rotation + (isPortrait ? 90 : 0)) % 360;
+      const { horizontal } = mapMovementToLocal(mx, my);
 
-      // Map screen movement to card-local horizontal movement
-      let cardHorizontal: number;
-      if (totalRotation === 90) {
-        cardHorizontal = my;
-      } else if (totalRotation === 270) {
-        cardHorizontal = -my;
-      } else if (totalRotation === 180) {
-        cardHorizontal = -mx;
-      } else {
-        cardHorizontal = mx;
-      }
-
-      if (last && Math.abs(cardHorizontal) > SWIPE_THRESHOLD) {
+      if (last && Math.abs(horizontal) > SWIPE_THRESHOLD) {
         mediumTap();
         onExit();
       }
@@ -65,7 +54,7 @@ export const CommanderAttackerOverlay = ({
         >
           Dealing Commander Damage
         </span>
-        
+
       </div>
     </div>
   );

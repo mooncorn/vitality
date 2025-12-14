@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Dice1, Dice2, Dice3, Dice4, Dice5, Dice6 } from 'lucide-react';
+import { useRotationTransform } from '@/hooks/useRotationTransform';
 
 const DiceIcons = {
   1: Dice1,
@@ -11,7 +12,7 @@ const DiceIcons = {
   6: Dice6,
 } as const;
 
-interface HighrollOverlayProps {
+interface DiceRollDisplayProps {
   diceValue: number;
   color: string;
   backgroundColor: string;
@@ -20,16 +21,17 @@ interface HighrollOverlayProps {
   isWinner?: boolean;
 }
 
-export const HighrollOverlay = ({
+export const DiceRollDisplay = ({
   diceValue,
   color,
   backgroundColor,
   rotation = 0,
   isPortrait = false,
   isWinner = false,
-}: HighrollOverlayProps) => {
+}: DiceRollDisplayProps) => {
   const [isRolling, setIsRolling] = useState(true);
   const [displayValue, setDisplayValue] = useState(1);
+  const { totalRotation } = useRotationTransform({ rotation, isPortrait });
 
   // Rolling animation effect
   useEffect(() => {
@@ -52,9 +54,6 @@ export const HighrollOverlay = ({
   }, [diceValue]);
 
   const DiceIcon = DiceIcons[displayValue as keyof typeof DiceIcons];
-
-  // Calculate total rotation for proper orientation
-  const totalRotation = (rotation + (isPortrait ? 90 : 0)) % 360;
 
   // Winner gets a larger dice icon only after rolling stops
   const baseSize = !isRolling && isWinner ? 120 : 80;
